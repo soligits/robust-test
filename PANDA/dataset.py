@@ -139,3 +139,14 @@ def get_MVTEC(normal_class_indx, batch_size, path):
     test_loader = torch.utils.data.DataLoader(testset, shuffle=False, batch_size=batch_size)  
 
     return train_loader, test_loader
+
+
+def download_and_extract_mvtec(path):
+    import os
+    import wget
+    import tarfile
+    so.extractall(path=os.environ['BACKUP_DIR'])
+    url = 'https://www.mydrive.ch/shares/38536/3830184030e49fe74747669442f0f282/download/420938113-1629952094/mvtec_anomaly_detection.tar.xz'
+    filename = wget.download(url, out=path)
+    with tarfile.open(os.path.join(path, filename)) as so:
+        so.extractall(path=os.path.join(path, "mvtec_anomaly_detection"))
