@@ -78,6 +78,7 @@ class PGD_KNN(Attack):
               adv_images = adv_images.detach() + self.alpha*grad.sign()
               delta = torch.clamp(adv_images - target_images, min=-self.eps, max=self.eps)
               adv_images = torch.clamp(target_images + delta, min=0, max=1).detach()
+              del grad
           return adv_images
         
         adv_normal_images = adv_attack(normal_images, False)
@@ -93,7 +94,7 @@ class PGD_KNN(Attack):
           adv_images = adv_anomaly_images
           targets = torch.ones(adv_anomaly_images.shape[0])
 
-        del images, labels, normal_images, anomaly_images
+        del images.grad, images, labels, normal_images, anomaly_images
         gc.collect()
         torch.cuda.empty_cache()
 

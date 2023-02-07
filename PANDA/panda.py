@@ -56,7 +56,7 @@ def get_score(model, device, train_loader, test_loader, attack_type):
         for (imgs, _) in tqdm(train_loader, desc='Train set feature extracting'):
             imgs = imgs.to(device)
             _, features = model(imgs)
-            train_feature_space.append(features)
+            train_feature_space.append(features.detach().cpu())
         train_feature_space = torch.cat(train_feature_space, dim=0).contiguous().cpu().numpy()
 
     mean_train = torch.mean(torch.Tensor(train_feature_space), axis=0)
@@ -80,7 +80,7 @@ def get_score(model, device, train_loader, test_loader, attack_type):
             imgs = imgs.to(device)
             test_labels += labels.numpy().tolist()
             _, features = model(imgs)
-            test_feature_space.append(features)
+            test_feature_space.append(features.detach().cpu())
         test_feature_space = torch.cat(test_feature_space, dim=0).contiguous().cpu().numpy()
     
     distances = utils.knn_score(train_feature_space, test_feature_space)
@@ -97,7 +97,7 @@ def get_score(model, device, train_loader, test_loader, attack_type):
         adv_imgs, labels, _, _ = test_attack(imgs, labels)
         adv_test_labels += labels.cpu().numpy().tolist()
         _, adv_features = model(imgs)
-        test_adversarial_feature_space.append(adv_features)
+        test_adversarial_feature_space.append(adv_features.detach().cpu())
         torch.cuda.empty_cache()
         del _,imgs, adv_imgs, adv_features, labels
     
