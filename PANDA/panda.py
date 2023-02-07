@@ -75,13 +75,15 @@ def get_score(model, device, train_loader, test_loader, attack_type):
     else:
         test_attack = KnnPGD.PGD_KNN(model, mean_train.to(device), eps=2/255, steps=1)
 
+    test_labels = []
+
     with torch.no_grad():
-        for (imgs, _) in tqdm(test_loader, desc='Test set feature extracting'):
+        for (imgs, labels) in tqdm(test_loader, desc='Test set feature extracting'):
             imgs = imgs.to(device)
+            test_labels += labels.numpy().tolist()
             _, features = model(imgs)
             test_feature_space.append(features)
         test_feature_space = torch.cat(test_feature_space, dim=0).contiguous().cpu().numpy()
-        test_labels = test_loader.dataset.targets
 
     adv_test_labels = []
 
