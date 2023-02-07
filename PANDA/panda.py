@@ -85,6 +85,10 @@ def get_score(model, device, train_loader, test_loader, attack_type):
             test_feature_space.append(features)
         test_feature_space = torch.cat(test_feature_space, dim=0).contiguous().cpu().numpy()
     
+    distances = utils.knn_score(train_feature_space, test_feature_space)
+    auc = roc_auc_score(test_labels, distances)
+    del test_feature_space, distances, test_labels
+
     torch.cuda.empty_cache()
     adv_test_labels = []
 
@@ -99,12 +103,9 @@ def get_score(model, device, train_loader, test_loader, attack_type):
         del _,imgs, adv_imgs, adv_features, labels
     
     test_adversarial_feature_space = torch.cat(test_adversarial_feature_space, dim=0).contiguous().detach().cpu().numpy()
-
-    distances = utils.knn_score(train_feature_space, test_feature_space)
     adv_distances = utils.knn_score(train_feature_space, test_adversarial_feature_space)
-
-    auc = roc_auc_score(test_labels, distances)
     adv_auc = roc_auc_score(adv_test_labels, adv_distances)
+    del test_adversarial_feature_space, adv_distances, adv_test_labels
 
     return adv_auc, auc, train_feature_space
 
