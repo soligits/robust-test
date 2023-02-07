@@ -96,7 +96,7 @@ def get_score(model, device, train_loader, test_loader, attack_type):
         _, adv_features = model(imgs)
         test_adversarial_feature_space.append(adv_features)
     
-    test_adversarial_feature_space = torch.cat(test_adversarial_feature_space, dim=0).contiguous().cpu().numpy()
+    test_adversarial_feature_space = torch.cat(test_adversarial_feature_space, dim=0).contiguous().detach().cpu().numpy()
 
     distances = utils.knn_score(train_feature_space, test_feature_space)
     adv_distances = utils.knn_score(train_feature_space, test_adversarial_feature_space)
