@@ -116,13 +116,14 @@ def main(args):
         ewc_loss = EWCLoss(frozen_model, fisher)
 
     utils.freeze_parameters(model)
-    train_loader, test_loader = utils.get_loaders(dataset=args.dataset, label_class=args.label, batch_size=args.batch_size)
+    train_loader, test_loader = utils.get_loaders(dataset=args.dataset, path=args.dataset_path, label_class=args.label, batch_size=args.batch_size)
     train_model(model, train_loader, test_loader, device, args, ewc_loss)
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='')
     parser.add_argument('--dataset', default='cifar10')
+    parser.add_argument('--dataset_path', default='~/cifar10', type=str)
     parser.add_argument('--diag_path', default='./data/fisher_diagonal.pth', help='fim diagonal path')
     parser.add_argument('--ewc', action='store_true', help='Train with EWC')
     parser.add_argument('--epochs', default=15, type=int, metavar='epochs', help='number of epochs')
