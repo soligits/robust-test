@@ -84,17 +84,18 @@ def get_score(model, device, train_loader, test_loader, attack_type):
             _, features = model(imgs)
             test_feature_space.append(features)
         test_feature_space = torch.cat(test_feature_space, dim=0).contiguous().cpu().numpy()
-
+    
+    torch.cuda.empty_cache()
     adv_test_labels = []
 
     for (imgs, labels) in tqdm(test_loader, desc='Test set adversarial feature extracting'):
-        torch.cuda.empty_cache()
         imgs = imgs.to(device)
         labels = labels.to(device)
         adv_imgs, labels, _, _ = test_attack(imgs, labels)
         adv_test_labels += labels.cpu().numpy().tolist()
         _, adv_features = model(imgs)
         test_adversarial_feature_space.append(adv_features)
+        torch.cuda.empty_cache()
     
     test_adversarial_feature_space = torch.cat(test_adversarial_feature_space, dim=0).contiguous().detach().cpu().numpy()
 

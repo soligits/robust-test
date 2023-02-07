@@ -13,6 +13,13 @@ __all__ = ['ResNet', 'resnet18', 'resnet34', 'resnet50', 'resnet101',
            'wide_resnet50_2', 'wide_resnet101_2']
 
 
+
+mean = [0.485, 0.456, 0.406]
+std = [0.229, 0.224, 0.225]
+
+mu = torch.tensor(cifar10_mean).view(3,1,1).cuda()
+std = torch.tensor(cifar10_std).view(3,1,1).cuda()
+
 model_urls = {
     'resnet18': 'https://download.pytorch.org/models/resnet18-5c106cde.pth',
     'resnet34': 'https://download.pytorch.org/models/resnet34-333f7ec4.pth',
@@ -135,7 +142,7 @@ class ResNet(nn.Module):
         if norm_layer is None:
             norm_layer = nn.BatchNorm2d
         self._norm_layer = norm_layer
-
+        self.norm = lambda x: ( x - mu ) / std
         self.inplanes = 64
         self.dilation = 1
         if replace_stride_with_dilation is None:
@@ -205,6 +212,7 @@ class ResNet(nn.Module):
 
     def _forward_impl(self, x):
         # See note [TorchScript super()]
+        x = self.norm(x)
         x = self.conv1(x)
         x = self.bn1(x)
         x = self.relu(x)
