@@ -8,12 +8,7 @@ import utils
 from copy import deepcopy
 from tqdm import tqdm
 from KNN import KnnFGSM, KnnPGD
-
-# KnnPGD.PGD_KNN(model, mean_train.to(device), eps=attack.eps, steps=attack.steps)
-# test_features += model.get_feature_vector(inputs).detach().cpu().numpy().tolist()
-# test_labels_normal += labels.detach().cpu().numpy().tolist()
-# adv_inputs, labels, _, __ = test_attack(inputs, labels)
-# adv_test_features += model.get_feature_vector(adv_inputs).detach().cpu().numpy().tolist()
+import gc
 
 def train_model(model, train_loader, test_loader, device, args, ewc_loss):
     model.eval()
@@ -66,6 +61,9 @@ def get_score(model, device, train_loader, test_loader, attack_type):
 
     mean_train = torch.mean(torch.Tensor(train_feature_space), axis=0)
 
+    gc.collect()
+    torch.cuda.empty_cache()
+
     test_feature_space = []
     test_adversarial_feature_space = []
 
@@ -88,8 +86,9 @@ def get_score(model, device, train_loader, test_loader, attack_type):
     distances = utils.knn_score(train_feature_space, test_feature_space)
     auc = roc_auc_score(test_labels, distances)
     del test_feature_space, distances, test_labels
-
+    gc.collect()
     torch.cuda.empty_cache()
+
     adv_test_labels = []
 
     for (imgs, labels) in tqdm(test_loader, desc='Test set adversarial feature extracting'):
@@ -106,6 +105,8 @@ def get_score(model, device, train_loader, test_loader, attack_type):
     adv_distances = utils.knn_score(train_feature_space, test_adversarial_feature_space)
     adv_auc = roc_auc_score(adv_test_labels, adv_distances)
     del test_adversarial_feature_space, adv_distances, adv_test_labels
+    gc.collect()
+    torch.cuda.empty_cache()
 
     return adv_auc, auc, train_feature_space
 
