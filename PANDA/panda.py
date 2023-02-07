@@ -71,6 +71,7 @@ def get_adv_score(model, device, train_loader, test_loader, attack_type):
     else:
         test_attack = KnnPGD.PGD_KNN(model, mean_train.to(device), eps=2/255, steps=1)
 
+    test_adversarial_feature_space = []
     adv_test_labels = []
 
     for (imgs, labels) in tqdm(test_loader, desc='Test set adversarial feature extracting'):
