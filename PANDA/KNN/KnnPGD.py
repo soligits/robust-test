@@ -1,6 +1,8 @@
 from KNN.KnnAttack import Attack
 import torch
 import torch.nn as nn
+import gc
+
 class PGD_KNN(Attack):
     r"""
     PGD in the paper 'Towards Deep Learning Models Resistant to Adversarial Attacks'
@@ -90,5 +92,9 @@ class PGD_KNN(Attack):
         else:
           adv_images = adv_anomaly_images
           targets = torch.ones(adv_anomaly_images.shape[0])
+
+        del images, labels, normal_images, anomaly_images
+        gc.collect()
+        torch.cuda.empty_cache()
 
         return adv_images, targets, adv_normal_images, adv_anomaly_images
