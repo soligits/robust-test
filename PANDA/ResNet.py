@@ -17,8 +17,8 @@ __all__ = ['ResNet', 'resnet18', 'resnet34', 'resnet50', 'resnet101',
 mean = [0.485, 0.456, 0.406]
 std = [0.229, 0.224, 0.225]
 
-mu = torch.tensor(cifar10_mean).view(3,1,1).cuda()
-std = torch.tensor(cifar10_std).view(3,1,1).cuda()
+mu = torch.tensor(mean).view(3,1,1).cuda()
+std = torch.tensor(std).view(3,1,1).cuda()
 
 model_urls = {
     'resnet18': 'https://download.pytorch.org/models/resnet18-5c106cde.pth',
