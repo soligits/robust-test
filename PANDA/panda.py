@@ -132,7 +132,7 @@ if __name__ == "__main__":
     parser.add_argument('--label', default=0, type=int, help='The normal class')
     parser.add_argument('--lr', type=float, default=1e-2, help='The initial learning rate.')
     parser.add_argument('--resnet_type', default=152, type=int, help='which resnet to use')
-    parser.add_argument('--batch_size', default=32, type=int)
+    parser.add_argument('--batch_size', default=16, type=int)
     parser.add_argument('--attack_type', default='PGD', type=str)
 
     args = parser.parse_args()

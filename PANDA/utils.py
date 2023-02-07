@@ -71,9 +71,9 @@ def get_outliers_loader(batch_size):
     outlier_loader = torch.utils.data.DataLoader(dataset, batch_size=batch_size, shuffle=True, num_workers=0)
     return outlier_loader
 
-def get_loaders(dataset, label_class, batch_size):
+def get_loaders(dataset, path, label_class, batch_size):
     if dataset in ['cifar10', 'cifar100', 'fashion', 'mnist', 'mvtec', 'svhn']:
-        return get_dataloader(dataset, label_class, batch_size)
+        return get_dataloader(dataset, path, label_class, batch_size)
     else:
         print('Unsupported Dataset')
         exit()

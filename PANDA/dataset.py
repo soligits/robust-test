@@ -25,7 +25,7 @@ mvtec_labels = ['bottle', 'cable', 'capsule', 'carpet', 'grid', 'hazelnut', 'lea
                 'wood', 'zipper']
 
 
-def get_dataloader(dataset='cifar', path, normal_class_indx = 0, batch_size=8):
+def get_dataloader(dataset='cifar', path='~/mydataset', normal_class_indx = 0, batch_size=8):
     if dataset == 'cifar10':
         return get_CIFAR10(normal_class_indx, batch_size, path)
     elif dataset == 'mnist':
