@@ -73,7 +73,7 @@ def get_score(model, device, train_loader, test_loader, attack_type):
     if attack_type == 'PGD':
         test_attack = KnnPGD.PGD_KNN(model, mean_train.to(device), eps=2/255, steps=10)
     else:
-        test_attack = KnnFGSM.FGSM_KNN(model, mean_train.to(device), eps=2/255)
+        test_attack = KnnPGD.PGD_KNN(model, mean_train.to(device), eps=2/255, steps=1)
 
     with torch.no_grad():
         for (imgs, _) in tqdm(test_loader, desc='Test set feature extracting'):
@@ -83,10 +83,13 @@ def get_score(model, device, train_loader, test_loader, attack_type):
         test_feature_space = torch.cat(test_feature_space, dim=0).contiguous().cpu().numpy()
         test_labels = test_loader.dataset.targets
 
+    adv_test_labels = []
+
     for (imgs, labels) in tqdm(test_loader, desc='Test set adversarial feature extracting'):
         imgs = imgs.to(device)
         labels = labels.to(device)
-        adv_imgs = test_attack(imgs, labels)
+        adv_imgs, labels, _, _ = test_attack(imgs, labels)
+        adv_test_labels += labels.cpu().numpy().tolist()
         _, adv_features = model(imgs)
         test_adversarial_feature_space.append(adv_features)
     
@@ -96,7 +99,7 @@ def get_score(model, device, train_loader, test_loader, attack_type):
     adv_distances = utils.knn_score(train_feature_space, test_adversarial_feature_space)
 
     auc = roc_auc_score(test_labels, distances)
-    adv_auc = roc_auc_score(test_labels, adv_distances)
+    adv_auc = roc_auc_score(adv_test_labels, adv_distances)
 
     return adv_auc, auc, train_feature_space
 
