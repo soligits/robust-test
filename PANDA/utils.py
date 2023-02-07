@@ -18,7 +18,7 @@ transform_gray = transforms.Compose([
                                  transforms.Resize(256),
                                  transforms.CenterCrop(224),
                                  transforms.Grayscale(num_output_channels=3),
-                                 transforms.ToTensor()])
+                                 transforms.ToTensor()])    
 
 
 def get_resnet_model(resnet_type=152):
