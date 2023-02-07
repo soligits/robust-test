@@ -95,17 +95,6 @@ def get_SVHN(normal_class_indx, batch_size, path):
     return train_loader, test_loader
 
 
-def get_MVTEC(normal_class_indx, batch_size, path):
-    normal_class = mvtec_labels[normal_class_indx]
-
-    trainset = MVTecDataset(path, normal_class, transform_color, train=True)
-    train_loader = torch.utils.data.DataLoader(trainset, shuffle=True, batch_size=batch_size)
-
-    testset = MVTecDataset(path, normal_class, transform_color, train=False)
-    test_loader = torch.utils.data.DataLoader(testset, shuffle=True, batch_size=batch_size)  
-
-    return train_loader, test_loader
-
 class MVTecDataset(Dataset):
     def __init__(self, root, category, transform=None, target_transform=None, train=True, normal=True):
         self.transform = transform
@@ -138,3 +127,15 @@ class MVTecDataset(Dataset):
 
     def __len__(self):
         return len(self.image_files)
+
+
+def get_MVTEC(normal_class_indx, batch_size, path):
+    normal_class = mvtec_labels[normal_class_indx]
+
+    trainset = MVTecDataset(path, normal_class, transform_color, train=True)
+    train_loader = torch.utils.data.DataLoader(trainset, shuffle=True, batch_size=batch_size)
+
+    testset = MVTecDataset(path, normal_class, transform_color, train=False)
+    test_loader = torch.utils.data.DataLoader(testset, shuffle=False, batch_size=batch_size)  
+
+    return train_loader, test_loader
