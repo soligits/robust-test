@@ -62,7 +62,7 @@ class PGD_KNN(Attack):
           for _ in range(self.steps):
               adv_images.requires_grad = True
 
-              outputs = self.model.get_feature_vector(adv_images)
+              _, outputs = self.model(adv_images)
 
           
               cost = loss(outputs, self.target.repeat(outputs.shape[0], 1))
