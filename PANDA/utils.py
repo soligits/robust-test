@@ -4,6 +4,7 @@ import torchvision.transforms as transforms
 import numpy as np
 import faiss
 import ResNet
+from dataset import get_dataloader
 
 mvtype = ['bottle', 'cable', 'capsule', 'carpet', 'grid', 'hazelnut', 'leather',
           'metal_nut', 'pill', 'screw', 'tile', 'toothbrush', 'transistor',
@@ -71,27 +72,8 @@ def get_outliers_loader(batch_size):
     return outlier_loader
 
 def get_loaders(dataset, label_class, batch_size):
-    if dataset in ['cifar10', 'fashion']:
-        if dataset == "cifar10":
-            ds = torchvision.datasets.CIFAR10
-            transform = transform_color
-            coarse = {}
-            trainset = ds(root='data', train=True, download=True, transform=transform, **coarse)
-            testset = ds(root='data', train=False, download=True, transform=transform, **coarse)
-        elif dataset == "fashion":
-            ds = torchvision.datasets.FashionMNIST
-            transform = transform_gray
-            coarse = {}
-            trainset = ds(root='data', train=True, download=True, transform=transform, **coarse)
-            testset = ds(root='data', train=False, download=True, transform=transform, **coarse)
-
-        idx = np.array(trainset.targets) == label_class
-        testset.targets = [int(t != label_class) for t in testset.targets]
-        trainset.data = trainset.data[idx]
-        trainset.targets = [trainset.targets[i] for i, flag in enumerate(idx, 0) if flag]
-        train_loader = torch.utils.data.DataLoader(trainset, batch_size=batch_size, shuffle=True, num_workers=2, drop_last=False)
-        test_loader = torch.utils.data.DataLoader(testset, batch_size=batch_size, shuffle=False, num_workers=2, drop_last=False)
-        return train_loader, test_loader
+    if dataset in ['cifar10', 'cifar100', 'fashion', 'mnist', 'mvtev', 'svhn']:
+        return get_dataloader(dataset, label_class, batch_size
     else:
         print('Unsupported Dataset')
         exit()
