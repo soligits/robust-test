@@ -23,9 +23,10 @@ def train_model(model, train_loader, test_loader, device, args, ewc_loss):
         auc, feature_space = get_score(model, device, train_loader, test_loader, args.attack_type)
         print('Epoch: {}, AUROC is: {}'.format(epoch + 1, auc))
 
-    pgd_adv_auc, feature_space = get_adv_score(model, device, train_loader, test_loader, 'PGD')
+    pgd_10_adv_auc, feature_space = get_adv_score(model, device, train_loader, test_loader, 'PGD10')
+    pgd_100_adv_auc, feature_space = get_adv_score(model, device, train_loader, test_loader, 'PGD100')
     fgsm_adv_auc, feature_space = get_adv_score(model, device, train_loader, test_loader, 'FGSM')
-    print('PGD ADV AUROC is: {}, FGSM ADV AUROC is: {}'.format(pgd_adv_auc, fgsm_adv_auc))
+    print('PGD-100 ADV AUROC is: {}, PGD-10 ADV AUROC is: {}, FGSM ADV AUROC is: {}'.format(pgd_100_adv_auc, pgd_10_adv_auc, fgsm_adv_auc))
 
 def run_epoch(model, train_loader, optimizer, criterion, device, ewc, ewc_loss):
     running_loss = 0.0
@@ -67,7 +68,9 @@ def get_adv_score(model, device, train_loader, test_loader, attack_type):
     torch.cuda.empty_cache()
 
     test_attack = None
-    if attack_type == 'PGD':
+    if attack_type == 'PGD100':
+        test_attack = KnnPGD.PGD_KNN(model, mean_train.to(device), eps=2/255, steps=100)
+    elif attack_type == 'PGD10':
         test_attack = KnnPGD.PGD_KNN(model, mean_train.to(device), eps=2/255, steps=10)
     else:
         test_attack = KnnPGD.PGD_KNN(model, mean_train.to(device), eps=2/255, steps=1)
