@@ -86,16 +86,20 @@ class PGD_KNN(Attack):
 
         if normal_images.numel():
           adv_images = adv_normal_images
+          adv_images_in = adv_normal_images
+          adv_images_out = normal_images
           targets = torch.ones(adv_normal_images.shape[0])
           if anomaly_images.numel():
             adv_images = torch.cat((adv_images, adv_anomaly_images))
+            adv_images_in = torch.cat((adv_images_in, anomaly_images))
+            adv_images_out = torch.cat((adv_images_out, adv_anomaly_images))
             targets = torch.cat((torch.zeros((adv_normal_images.shape[0])), torch.ones((adv_anomaly_images.shape[0]))))
         else:
           adv_images = adv_anomaly_images
+          adv_images_in = anomaly_images
+          adv_images_out = adv_anomaly_images
           targets = torch.ones(adv_anomaly_images.shape[0])
 
-        del images.grad, images, labels, normal_images, anomaly_images
-        gc.collect()
         torch.cuda.empty_cache()
 
-        return adv_images, targets, adv_normal_images, adv_anomaly_images
+        return adv_images, adv_images_in, adv_images_out, targets
