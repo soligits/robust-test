@@ -1,0 +1,511 @@
+{
+    "log": {
+      "loglevel": "info"
+    },
+    "api": {
+      "services": [
+        "HandlerService",
+        "LoggerService",
+        "StatsService"
+      ],
+      "tag": "api"
+    },
+    "stats": {},
+    "policy": {
+      "levels": {
+        "0": {
+          "statsUserUplink": true,
+          "statsUserDownlink": true
+        }
+      },
+      "system": {
+        "statsInboundUplink": true,
+        "statsInboundDownlink": true,
+        "statsOutboundUplink": true,
+        "statsOutboundDownlink": true
+      }
+    },
+    "inbounds": [
+      {
+        "tag": "Vless-TCP-XTLS",
+        "port": 443,
+        "protocol": "vless",
+        "settings": {
+          "clients": [
+            { 
+              "email": "yek@nalbeki.com",
+              "id": "3a2ece55-3346-404f-8f3e-0b98a022ff4d",
+              "flow": "xtls-rprx-vision",
+              "level": 0
+            }
+          ],
+          "decryption": "none",
+          "fallbacks": [
+            {
+              "name": "trh2o.yeknalbeki.shop",
+              "alpn": "h2",
+              "dest": "@trjn-h2"
+            },
+            {
+              "name": "vlh2o.yeknalbeki.shop",
+              "alpn": "h2",
+              "dest": "@vlss-h2"
+            },
+            {
+              "name": "vmh2o.yeknalbeki.shop",
+              "alpn": "h2",
+              "dest": "@vmss-h2"
+            },
+            {
+              "name": "ssh2o.yeknalbeki.shop",
+              "alpn": "h2",
+              "dest": 4003
+            },
+            {
+              "path": "/yekvlws",
+              "dest": "@vlss-ws",
+              "xver": 2 
+            },
+            {
+              "path": "/yekvmws",
+              "dest": "@vmss-ws",
+              "xver": 2
+            },
+            {
+              "path": "/yektrjws",
+              "dest": "@trjn-ws",
+              "xver": 2
+            },
+            {
+              "path": "/yekvltc",
+              "dest": "@vlss-tcp",
+              "xver": 2
+            },
+            {
+              "path": "/yekvmtc",
+              "dest": "@vmss-tcp",
+              "xver": 2
+            },
+            {
+              "alpn": "h2",
+              "dest": "@trjn-tcp",
+              "xver": 2
+            },
+            {
+              "dest": "/dev/shm/h1.sock",
+              "xver": 2
+            }
+          ]
+        },
+        "streamSettings": {
+          "network": "tcp",
+          "security": "tls",
+          "tlsSettings": {
+            "serverName": "webgame.yeknalbeki.shop",
+            "certificates": [
+              {
+                "ocspStapling": 3600, 
+                "certificateFile": "/etc/letsencrypt/live/webgame.yeknalbeki.shop/fullchain.pem",
+                "keyFile": "/etc/letsencrypt/live/webgame.yeknalbeki.shop/privkey.pem" 
+              },
+              {
+                "ocspStapling": 3600, 
+                "certificateFile": "/etc/letsencrypt/live/nalbsnroses.nalbekia.shop/fullchain.pem",
+                "keyFile": "/etc/letsencrypt/live/nalbsnroses.nalbekia.shop/privkey.pem" 
+              }
+            ],
+            "minVersion": "1.2", 
+            "cipherSuites": "TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256:TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256:TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384:TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384:TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256:TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256", 
+            "alpn": [
+              "h2",
+              "http/1.1" 
+            ]
+          }
+        },
+        "sniffing": {
+          "enabled": true,
+          "destOverride": [
+            "http",
+            "tls"
+          ]
+        }
+      },
+      {
+        "listen": "@vlss-ws",
+        "protocol": "vless",
+        "settings": {
+          "clients": [
+            { "email":"yek@nalbeki.com", 
+              "id": "3a2ece55-3346-404f-8f3e-0b98a022ff4d", 
+              "level": 0
+  
+            }
+          ],
+          "decryption": "none"
+        },
+        "streamSettings": {
+          "network": "ws",
+          "security": "none",
+          "wsSettings": {
+            "acceptProxyProtocol": true,
+            "path": "/yekvlws"
+          }
+        },
+        "sniffing": {
+          "enabled": true,
+          "destOverride": [
+            "http",
+            "tls"
+          ]
+        }
+      },
+      {
+        "listen": "@vmss-ws",
+        "protocol": "vmess",
+        "settings": {
+          "clients": [
+            {
+              "email": "yek@nalbeki.com", 
+              "id": "3a2ece55-3346-404f-8f3e-0b98a022ff4d",
+              "level": 0
+            }
+          ]
+        },
+        "streamSettings": {
+          "network": "ws",
+          "security": "none",
+          "wsSettings": {
+            "acceptProxyProtocol": true,
+            "path": "/yekvmws"
+          }
+        },
+        "sniffing": {
+          "enabled": true,
+          "destOverride": [
+            "http",
+            "tls"
+          ]
+        }
+      },
+      {
+        "listen": "@trjn-ws", 
+        "protocol": "trojan",
+        "settings": {
+          "clients": [
+            {
+              "email":"yek@nalbeki.com",
+              "password": "3a2ece55-3346-404f-8f3e-0b98a022ff4d",
+              "level": 0
+            }
+          ]
+        },
+        "streamSettings": {
+          "network": "ws",
+          "security": "none",
+          "wsSettings": {
+            "acceptProxyProtocol": true,
+            "path": "/yektrjws"
+          }
+        },
+        "sniffing": {
+          "enabled": true,
+          "destOverride": [
+            "http",
+            "tls"
+          ]
+        }
+      },
+      {
+        "listen": "@trjn-tcp", 
+        "protocol": "trojan",
+        "settings": {
+          "clients": [
+            {
+              "email":"yek@nalbeki.com",
+              "password": "PinkFloyd",
+              "level": 0
+            }
+          ],
+          "fallbacks": [
+            {
+              "dest": "/dev/shm/h2c.sock",
+              "xver": 2 
+            }
+          ]
+        },
+        "streamSettings": {
+          "network": "tcp",
+          "security": "none",
+          "tcpSettings": {
+            "acceptProxyProtocol": true
+          }
+        },
+        "sniffing": {
+          "enabled": true,
+          "destOverride": [
+            "http",
+            "tls"
+          ]
+        }
+      },
+      {
+        "listen": "@vlss-tcp",
+        "protocol": "vless",
+        "settings": {
+          "clients": [
+            {
+              "email":"yek@nalbeki.com",
+              "id": "3a2ece55-3346-404f-8f3e-0b98a022ff4d",
+              "level": 0 
+            }
+          ],
+          "decryption": "none"
+        },
+        "streamSettings": {
+          "network": "tcp",
+          "security": "none",
+          "tcpSettings": {
+            "acceptProxyProtocol": true,
+            "header": {
+              "type": "http",
+              "request": {
+                "path": [
+                  "/yekvltc"
+                ]
+              }
+            }
+          }
+        },
+        "sniffing": {
+          "enabled": true,
+          "destOverride": [
+            "http",
+            "tls"
+          ]
+        }
+      },
+      {
+        "listen": "@vmss-tcp",
+        "protocol": "vmess",
+        "settings": {
+          "clients": [
+            {
+              "email":"general@vmss-tcp",
+              "id": "3a2ece55-3346-404f-8f3e-0b98a022ff4d",
+              "level": 0
+            }
+          ]
+        },
+        "streamSettings": {
+          "network": "tcp",
+          "security": "none",
+          "tcpSettings": {
+            "acceptProxyProtocol": true,
+            "header": {
+              "type": "http",
+              "request": {
+                "path": [
+                  "/yekvmtc"
+                ]
+              }
+            }
+          }
+        },
+        "sniffing": {
+          "enabled": true,
+          "destOverride": [
+            "http",
+            "tls"
+          ]
+        }
+      },
+      {
+        "tag": "trojan-grpc",
+        "listen": "127.0.0.1",
+        "port": 4001,
+        "protocol": "trojan",
+        "settings": {
+          "clients": [
+            {            
+              "email": "yek@nalbeki.com",
+              "password": "PinkFloyd",
+              "level":0
+            }
+          ]
+        },
+        "streamSettings": {
+          "network": "grpc",
+          "security": "none",
+          "grpcSettings": {
+            "serviceName": "yektrg"
+          }
+        }
+      },
+      {
+        "tag": "vless-grpc",
+        "listen": "127.0.0.1",
+        "port": 4002,
+        "protocol": "vless",
+        "settings": {
+          "clients": [
+            {
+              "email":"yek@nalbeki.com",
+              "id": "3a2ece55-3346-404f-8f3e-0b98a022ff4d",
+              "level": 0
+            }
+          ],
+          "decryption": "none"
+        },
+        "streamSettings": {
+          "network": "grpc",
+          "security": "none",
+          "grpcSettings": {
+            "serviceName": "yekvlg"
+          }
+        }
+      },
+      {
+        "tag": "vmess-grpc",
+        "listen": "127.0.0.1",
+        "port": 4003,
+        "protocol": "vmess",
+        "settings": {
+          "clients": [
+            {
+              "email":"general@vmss-grpc",
+              "id": "3a2ece55-3346-404f-8f3e-0b98a022ff4d",
+              "level": 0
+            }
+          ]
+        },
+        "streamSettings": {
+          "network": "grpc",
+          "security": "none",
+          "grpcSettings": {
+            "serviceName": "yekvmg"
+          }
+        }
+      },
+      {
+        "listen": "@trjn-h2",
+        "protocol": "trojan",
+        "settings": {
+          "clients": [
+            {             
+              "email":"yek@nalbeki.com",
+              "password": "PinkFloyd",
+              "level": 0
+            }
+          ]
+        },
+        "streamSettings": {
+          "network": "h2",
+          "security": "none",
+          "httpSettings": {
+            "path": "/yektrh2"
+          }
+        }
+      },
+      {
+        "listen": "@vlss-h2",
+        "protocol": "vless",
+        "settings": {
+          "clients": [
+            {
+              "email":"yek@nalbeki.com", 
+              "id": "3a2ece55-3346-404f-8f3e-0b98a022ff4d",
+              "level": 0
+            }
+          ],
+          "decryption": "none"
+        },
+        "streamSettings": {
+          "network": "h2",
+          "security": "none",
+          "httpSettings": {
+            "path": "/yekvlh2"
+          }
+        },
+        "sniffing": {
+          "enabled": true,
+          "destOverride": [
+            "http",
+            "tls"
+          ]
+        }
+      },
+      {
+        "listen": "@vmss-h2",
+        "protocol": "vmess",
+        "settings": {
+          "clients": [
+            { 
+              "email":"yek@nalbeki.com",
+              "id": "3a2ece55-3346-404f-8f3e-0b98a022ff4d",
+              "level": 0
+            }
+          ]
+        },
+        "streamSettings": {
+          "network": "h2",
+          "security": "none",
+          "httpSettings": {
+            "path": "/vmh2"
+          }
+        },
+        "sniffing": {
+          "enabled": true,
+          "destOverride": [
+            "http",
+            "tls"
+          ]
+        }
+      }
+    ],
+    "outbounds": [
+      {
+        "protocol": "freedom",
+        "settings": {}
+      },
+      {
+        "protocol": "blackhole",
+        "tag": "blocked"
+      },
+      {
+        "tag": "DNS-Internal",
+        "protocol": "dns",
+        "settings": {
+          "address": "127.0.0.53",
+          "port": 53
+        }
+      }
+    ],
+    "routing": {
+      "domainStrategy": "AsIs",
+      "rules": [
+        {
+          "type": "field",
+          "ip": ["geoip:ir", "geoip:private"],
+          "outboundTag": "block"
+        },
+        {
+          "type": "field",
+          "outboundTag": "blackhole",
+          "protocol": ["bittorrent"]
+        },
+        {
+          "inboundTag": [
+            "api"
+          ],
+          "outboundTag": "api",
+          "type": "field"
+        },
+        {
+          "type": "field",
+          "port": 53,
+          "network": "tcp,udp",
+          "outboundTag": "DNS-Internal"
+        }
+      ]
+    }
+  }

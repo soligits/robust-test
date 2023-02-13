@@ -23,10 +23,12 @@ def train_model(model, train_loader, test_loader, device, args, ewc_loss):
         auc, feature_space = get_score(model, device, train_loader, test_loader, args.attack_type)
         print('Epoch: {}, AUROC is: {}'.format(epoch + 1, auc))
 
-    pgd_10_adv_auc, feature_space = get_adv_score(model, device, train_loader, test_loader, 'PGD10')
+    pgd_10_adv_auc, pgd_10_adv_auc_in, pgd_10_adv_auc_out, feature_space = get_adv_score(model, device, train_loader, test_loader, 'PGD10')
     # pgd_100_adv_auc, feature_space = get_adv_score(model, device, train_loader, test_loader, 'PGD100')
-    fgsm_adv_auc, feature_space = get_adv_score(model, device, train_loader, test_loader, 'FGSM')
+    fgsm_adv_auc, fgsm_adv_auc_in, fgsm_adv_auc_out, feature_space = get_adv_score(model, device, train_loader, test_loader, 'FGSM')
     print('PGD-10 ADV AUROC is: {}, FGSM ADV AUROC is: {}'.format(pgd_10_adv_auc, fgsm_adv_auc))
+    print('IN: PGD-10 ADV AUROC is: {}, FGSM ADV AUROC is: {}'.format(pgd_10_adv_auc_in, fgsm_adv_auc_in))
+    print('OUT: PGD-10 ADV AUROC is: {}, FGSM ADV AUROC is: {}'.format(pgd_10_adv_auc_out, fgsm_adv_auc_out))
 
 def run_epoch(model, train_loader, optimizer, criterion, device, ewc, ewc_loss):
     running_loss = 0.0
@@ -76,26 +78,45 @@ def get_adv_score(model, device, train_loader, test_loader, attack_type):
         test_attack = KnnPGD.PGD_KNN(model, mean_train.to(device), eps=2/255, steps=1)
 
     test_adversarial_feature_space = []
+    test_adversarial_feature_space_in = []
+    test_adversarial_feature_space_out = []
     adv_test_labels = []
 
     for (imgs, labels) in tqdm(test_loader, desc='Test set adversarial feature extracting'):
         imgs = imgs.to(device)
         labels = labels.to(device)
-        adv_imgs, labels, _, _ = test_attack(imgs, labels)
+        adv_imgs, adv_imgs_in, adv_imgs_out, labels= test_attack(imgs, labels)
+
         adv_test_labels += labels.cpu().numpy().tolist()
+
         _, adv_features = model(adv_imgs)
+        _, adv_features_in = model(adv_imgs_in)
+        _, adv_features_out = model(adv_imgs_out)
+
         test_adversarial_feature_space.append(adv_features.detach().cpu())
+        test_adversarial_feature_space_in.append(adv_features_in.detach().cpu())
+        test_adversarial_feature_space_out.append(adv_features_out.detach().cpu())
+
         torch.cuda.empty_cache()
         del _,imgs, adv_imgs, adv_features, labels
     
     test_adversarial_feature_space = torch.cat(test_adversarial_feature_space, dim=0).contiguous().detach().cpu().numpy()
+    test_adversarial_feature_space_in = torch.cat(test_adversarial_feature_space_in, dim=0).contiguous().detach().cpu().numpy()
+    test_adversarial_feature_space_out = torch.cat(test_adversarial_feature_space_out, dim=0).contiguous().detach().cpu().numpy()
+
     adv_distances = utils.knn_score(train_feature_space, test_adversarial_feature_space)
+    adv_distances_in = utils.knn_score(train_feature_space, test_adversarial_feature_space_in)
+    adv_distances_out = utils.knn_score(train_feature_space, test_adversarial_feature_space_out)
+
     adv_auc = roc_auc_score(adv_test_labels, adv_distances)
-    del test_adversarial_feature_space, adv_distances, adv_test_labels
+    adv_auc_in = roc_auc_score(adv_test_labels, adv_distances_in)
+    adv_auc_out = roc_auc_score(adv_test_labels, adv_distances_out)
+
+    del test_adversarial_feature_space, test_adversarial_feature_space_in, test_adversarial_feature_space_out, adv_distances, adv_distances_in, adv_distances_out, adv_test_labels
     gc.collect()
     torch.cuda.empty_cache()
 
-    return adv_auc, train_feature_space
+    return adv_auc, adv_auc_in, adv_auc_out, train_feature_space
 
 
 def get_score(model, device, train_loader, test_loader, attack_type):

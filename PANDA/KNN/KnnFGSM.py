@@ -41,30 +41,49 @@ class FGSM_KNN(Attack):
         loss = nn.MSELoss()
 
         images.requires_grad = True
-        normal_images.requires_grad = True
-        anomaly_images.requires_grad = True
 
-        _, normal_outputs = self.model(normal_images)
-        _, anomaly_outputs = self.model(anomaly_images)
+        def adv_attack(target_images, attack_anomaly):
+          target_images.requires_grad = True
+          
+          adv_images = target_images.clone().detach()
 
-        # Calculate loss
-        cost = loss(normal_outputs, self.target.repeat(normal_outputs.shape[0], 1))
-        # Update adversarial images
-        grad = torch.autograd.grad(cost, normal_images,
-                                   retain_graph=False, create_graph=False)[0]
+          if adv_images.numel() == 0:
+            return adv_images
+
+          adv_images.requires_grad = True
+
+          _, outputs = self.model(adv_images)
+
         
-        adv_images_normal = normal_images + self.eps*grad.sign()
-        adv_images_normal = torch.clamp(adv_images_normal, min=0, max=1).detach()
+          cost = loss(outputs, self.target.repeat(outputs.shape[0], 1))
+          if attack_anomaly:
+            cost = -cost
 
-        cost = - loss(anomaly_outputs, self.target.repeat(anomaly_outputs.shape[0], 1))
+          grad = torch.autograd.grad(cost, adv_images, retain_graph=False, create_graph=False)[0]
+          adv_images = adv_images.detach() + self.alpha*grad.sign()
+          adv_images = torch.clamp(adv_images, min=0, max=1).detach()
+          del grad
+          return adv_images
 
-        grad = torch.autograd.grad(cost, anomaly_images,
-                                   retain_graph=False, create_graph=False)[0]
+        adv_normal_images = adv_attack(normal_images, False)
+        adv_anomaly_images = adv_attack(anomaly_images, True)
 
-        adv_images_anomaly = anomaly_images + self.eps*grad.sign()
-        adv_images_anomaly = torch.clamp(adv_images_anomaly, min=0, max=1).detach()
+        if normal_images.numel():
+          adv_images = adv_normal_images
+          adv_images_in = adv_normal_images
+          adv_images_out = normal_images
+          targets = torch.ones(adv_normal_images.shape[0])
+          if anomaly_images.numel():
+            adv_images = torch.cat((adv_images, adv_anomaly_images))
+            adv_images_in = torch.cat((adv_images_in, anomaly_images))
+            adv_images_out = torch.cat((adv_images_out, adv_anomaly_images))
+            targets = torch.cat((torch.zeros((adv_normal_images.shape[0])), torch.ones((adv_anomaly_images.shape[0]))))
+        else:
+          adv_images = adv_anomaly_images
+          adv_images_in = anomaly_images
+          adv_images_out = adv_anomaly_images
+          targets = torch.ones(adv_anomaly_images.shape[0])
 
-        adv_images = torch.cat((adv_images_normal, adv_images_anomaly))
-        targets = torch.cat((torch.zeros((adv_images_normal.shape[0])), torch.ones((adv_images_anomaly.shape[0]))))
+        torch.cuda.empty_cache()
 
-        return adv_images, targets, adv_images_normal, adv_images_anomaly
+        return adv_images, adv_images_in, adv_images_out, targets
