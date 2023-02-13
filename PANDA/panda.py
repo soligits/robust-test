@@ -88,14 +88,19 @@ def get_adv_score(model, device, train_loader, test_loader, attack_type):
         adv_imgs, adv_imgs_in, adv_imgs_out, labels= test_attack(imgs, labels)
 
         adv_test_labels += labels.cpu().numpy().tolist()
+        del imgs, labels
 
         _, adv_features = model(adv_imgs)
-        _, adv_features_in = model(adv_imgs_in)
-        _, adv_features_out = model(adv_imgs_out)
-
         test_adversarial_feature_space.append(adv_features.detach().cpu())
+        del adv_features, adv_imgs
+
+        _, adv_features_in = model(adv_imgs_in)
         test_adversarial_feature_space_in.append(adv_features_in.detach().cpu())
+        del adv_features_in, adv_imgs_in
+
+        _, adv_features_out = model(adv_imgs_out)
         test_adversarial_feature_space_out.append(adv_features_out.detach().cpu())
+        del adv_features_out, adv_imgs_out
 
         torch.cuda.empty_cache()
         del _,imgs, adv_imgs, adv_features, labels
