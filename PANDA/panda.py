@@ -75,7 +75,7 @@ def get_adv_score(model, device, train_loader, test_loader, attack_type):
     elif attack_type == 'PGD10':
         test_attack = KnnPGD.PGD_KNN(model, mean_train.to(device), eps=2/255, steps=10)
     else:
-        test_attack = KnnPGD.PGD_KNN(model, mean_train.to(device), eps=2/255, steps=1)
+        test_attack = KnnFGSM.FGSM_KNN(model, mean_train.to(device), eps=2/255)
 
     test_adversarial_feature_space = []
     test_adversarial_feature_space_in = []
