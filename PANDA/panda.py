@@ -11,6 +11,7 @@ from KNN import KnnFGSM, KnnPGD
 import gc
 import logging
 import sys
+import os
 
 def train_model(model, train_loader, test_loader, device, args, ewc_loss):
     model.eval()
@@ -194,6 +195,9 @@ if __name__ == "__main__":
     parser.add_argument('--attack_type', default='PGD', type=str)
 
     args = parser.parse_args()
+
+    if not os.path.exists('./Results/'):
+        os.makedirs('./Results/')
 
     logging.basicConfig(
         level=logging.INFO,
