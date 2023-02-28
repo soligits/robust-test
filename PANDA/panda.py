@@ -9,26 +9,28 @@ from copy import deepcopy
 from tqdm import tqdm
 from KNN import KnnFGSM, KnnPGD
 import gc
+import logging
+
 
 def train_model(model, train_loader, test_loader, device, args, ewc_loss):
     model.eval()
     auc, feature_space = get_score(model, device, train_loader, test_loader, args.attack_type)
-    print('Epoch: {}, AUROC is: {}'.format(0, auc))
+    logging.info('Epoch: {}, AUROC is: {}'.format(0, auc))
     optimizer = optim.SGD(model.parameters(), lr=args.lr, weight_decay=0.00005, momentum=0.9)
     center = torch.FloatTensor(feature_space).mean(dim=0)
     criterion = CompactnessLoss(center.to(device))
     for epoch in range(args.epochs):
         running_loss = run_epoch(model, train_loader, optimizer, criterion, device, args.ewc, ewc_loss)
-        print('Epoch: {}, Loss: {}'.format(epoch + 1, running_loss))
+        logging.info('Epoch: {}, Loss: {}'.format(epoch + 1, running_loss))
         auc, feature_space = get_score(model, device, train_loader, test_loader, args.attack_type)
-        print('Epoch: {}, AUROC is: {}'.format(epoch + 1, auc))
+        logging.info('Epoch: {}, AUROC is: {}'.format(epoch + 1, auc))
 
     pgd_10_adv_auc, pgd_10_adv_auc_in, pgd_10_adv_auc_out, feature_space = get_adv_score(model, device, train_loader, test_loader, 'PGD10')
     # pgd_100_adv_auc, feature_space = get_adv_score(model, device, train_loader, test_loader, 'PGD100')
     fgsm_adv_auc, fgsm_adv_auc_in, fgsm_adv_auc_out, feature_space = get_adv_score(model, device, train_loader, test_loader, 'FGSM')
-    print('PGD-10 ADV AUROC is: {}, FGSM ADV AUROC is: {}'.format(pgd_10_adv_auc, fgsm_adv_auc))
-    print('IN: PGD-10 ADV AUROC is: {}, FGSM ADV AUROC is: {}'.format(pgd_10_adv_auc_in, fgsm_adv_auc_in))
-    print('OUT: PGD-10 ADV AUROC is: {}, FGSM ADV AUROC is: {}'.format(pgd_10_adv_auc_out, fgsm_adv_auc_out))
+    logging.info('PGD-10 ADV AUROC is: {}, FGSM ADV AUROC is: {}'.format(pgd_10_adv_auc, fgsm_adv_auc))
+    logging.info('IN: PGD-10 ADV AUROC is: {}, FGSM ADV AUROC is: {}'.format(pgd_10_adv_auc_in, fgsm_adv_auc_in))
+    logging.info('OUT: PGD-10 ADV AUROC is: {}, FGSM ADV AUROC is: {}'.format(pgd_10_adv_auc_out, fgsm_adv_auc_out))
 
 def run_epoch(model, train_loader, optimizer, criterion, device, ewc, ewc_loss):
     running_loss = 0.0
@@ -157,9 +159,9 @@ def get_score(model, device, train_loader, test_loader, attack_type):
     return auc, train_feature_space
 
 def main(args):
-    print('Dataset: {}, Normal Label: {}, LR: {}'.format(args.dataset, args.label, args.lr))
+    logging.info('Dataset: {}, Normal Label: {}, LR: {}'.format(args.dataset, args.label, args.lr))
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-    print(device)
+    logging.info(device)
     model = utils.get_resnet_model(resnet_type=args.resnet_type)
     model = model.to(device)
 
@@ -192,5 +194,14 @@ if __name__ == "__main__":
     parser.add_argument('--attack_type', default='PGD', type=str)
 
     args = parser.parse_args()
+
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s [%(levelname)s] %(message)s",
+        handlers=[
+            logging.FileHandler(f"./Results/PANDA-{parser.dataset}-{parser.label}-epcohs{parser.epochs}-ResNet{parser.resnetType}.log"),
+            logging.StreamHandler()
+        ]
+    )
 
     main(args)
