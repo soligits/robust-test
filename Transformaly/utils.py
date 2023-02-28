@@ -162,35 +162,27 @@ def extract_fetures(base_path,
                             [
                                 transforms.Resize((384, 384)),
                                 transforms.Grayscale(num_output_channels=3),
-                                transforms.ToTensor(),
-                                transforms.Normalize([0.5, 0.5, 0.5], [0.5, 0.5, 0.5])
-                            ]
+                                transforms.ToTensor()                            ]
                         )
                     else:
                         val_transforms = Compose(
                             [
                                 transforms.Resize((224, 224)),
                                 transforms.Grayscale(num_output_channels=3),
-                                transforms.ToTensor(),
-                                transforms.Normalize([0.5, 0.5, 0.5], [0.5, 0.5, 0.5])
-                            ]
+                                transforms.ToTensor()                            ]
                         )
                 else:
                     if use_imagenet:
                         val_transforms = Compose(
                             [
                                 transforms.Resize((384, 384)),
-                                transforms.ToTensor(),
-                                transforms.Normalize([0.5, 0.5, 0.5], [0.5, 0.5, 0.5])
-                            ]
+                                transforms.ToTensor()                            ]
                         )
                     else:
                         val_transforms = Compose(
                             [
                                 transforms.Resize((224, 224)),
-                                transforms.ToTensor(),
-                                transforms.Normalize([0.5, 0.5, 0.5], [0.5, 0.5, 0.5])
-                            ]
+                                transforms.ToTensor()                            ]
                         )
 
                 model.eval()
@@ -546,16 +538,14 @@ def get_transforms(dataset, use_imagenet):
         val_transforms_list = [
             transforms.Resize((384, 384)) if use_imagenet else transforms.Resize((224, 224)),
             transforms.Grayscale(num_output_channels=3),
-            transforms.ToTensor(),
-            transforms.Normalize([0.5, 0.5, 0.5], [0.5, 0.5, 0.5])
+            transforms.ToTensor()
         ]
 
 
     else:
         val_transforms_list = [
             transforms.Resize((384, 384)) if use_imagenet else transforms.Resize((224, 224)),
-            transforms.ToTensor(),
-            transforms.Normalize([0.5, 0.5, 0.5], [0.5, 0.5, 0.5])
+            transforms.ToTensor()
         ]
 
     val_transforms = Compose(val_transforms_list)
@@ -571,6 +561,15 @@ def get_number_of_classes(dataset):
 
     elif dataset == 'fmnist':
         number_of_classes = 10
+    
+    elif dataset == 'mnist':
+        number_of_classes = 10
+
+    elif dataset == 'svhn':
+        number_of_classes = 10
+
+    elif dataset == 'mvtec':
+        number_of_classes = 15
 
     elif dataset == 'cats_vs_dogs':
         number_of_classes = 2

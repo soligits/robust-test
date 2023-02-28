@@ -184,9 +184,9 @@ def get_MNIST(normal_class_indx, batch_size, path, backbone):
     test_loader = torch.utils.data.DataLoader(testset, batch_size=batch_size, shuffle=False, num_workers=2)
 
     trainset_msad = MNIST(root=path, train=True, download=True, transform=Transform(bw=True))
-    trainset_msad.data = trainset.data[np.array(trainset.targets) == normal_class_indx]
-    trainset_msad.targets  = [0 for t in trainset.targets]
-    train_loader_msad = torch.utils.data.DataLoader(trainset, batch_size=batch_size, shuffle=True, num_workers=2)
+    trainset_msad.data = trainset_msad.data[np.array(trainset_msad.targets) == normal_class_indx]
+    trainset_msad.targets  = [0 for t in trainset_msad.targets]
+    train_loader_msad = torch.utils.data.DataLoader(trainset_msad, batch_size=batch_size, shuffle=True, num_workers=2)
 
     return train_loader, test_loader, train_loader_msad
 
