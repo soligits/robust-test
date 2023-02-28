@@ -35,7 +35,7 @@ def contrastive_loss(out_1, out_2):
 def train_model(model, train_loader, test_loader, train_loader_1, device, args):
     model.eval()
     auc, feature_space = get_score(model, device, train_loader, test_loader)
-    print('Epoch: {}, AUROC is: {}'.format(0, auc))
+    logging.info('Epoch: {}, AUROC is: {}'.format(0, auc))
     optimizer = optim.SGD(model.parameters(), lr=args.lr, weight_decay=0.00005)
     center = torch.FloatTensor(feature_space).mean(dim=0)
     if args.angular:
@@ -43,9 +43,9 @@ def train_model(model, train_loader, test_loader, train_loader_1, device, args):
     center = center.to(device)
     for epoch in range(args.epochs):
         running_loss = run_epoch(model, train_loader_1, optimizer, center, device, args.angular)
-        print('Epoch: {}, Loss: {}'.format(epoch + 1, running_loss))
+        logging.info('Epoch: {}, Loss: {}'.format(epoch + 1, running_loss))
         auc, _ = get_score(model, device, train_loader, test_loader)
-        print('Epoch: {}, AUROC is: {}'.format(epoch + 1, auc))
+        logging.info('Epoch: {}, AUROC is: {}'.format(epoch + 1, auc))
     
     # pgd_10_adv_auc, pgd_10_adv_auc_in, pgd_10_adv_auc_out, feature_space = get_adv_score(model, device, train_loader, test_loader, 'PGD10')
     # pgd_100_adv_auc, feature_space = get_adv_score(model, device, train_loader, test_loader, 'PGD100')
@@ -113,7 +113,7 @@ def get_adv_score(model, device, train_loader, test_loader, attack_type):
     with torch.no_grad():
         for (imgs, _) in tqdm(train_loader, desc='Train set feature extracting'):
             imgs = imgs.to(device)
-            _, features = model(imgs)
+            features = model(imgs)
             train_feature_space.append(features.detach().cpu())
         train_feature_space = torch.cat(train_feature_space, dim=0).contiguous().cpu().numpy()
 
@@ -143,17 +143,17 @@ def get_adv_score(model, device, train_loader, test_loader, attack_type):
         adv_test_labels += labels.cpu().numpy().tolist()
         del imgs, labels
 
-        _, adv_features = model(adv_imgs)
+        adv_features = model(adv_imgs)
         test_adversarial_feature_space.append(adv_features.detach().cpu())
-        del _, adv_features, adv_imgs
+        del adv_features, adv_imgs
 
-        _, adv_features_in = model(adv_imgs_in)
+        adv_features_in = model(adv_imgs_in)
         test_adversarial_feature_space_in.append(adv_features_in.detach().cpu())
-        del _, adv_features_in, adv_imgs_in
+        del adv_features_in, adv_imgs_in
 
-        _, adv_features_out = model(adv_imgs_out)
+        adv_features_out = model(adv_imgs_out)
         test_adversarial_feature_space_out.append(adv_features_out.detach().cpu())
-        del _, adv_features_out, adv_imgs_out
+        del adv_features_out, adv_imgs_out
 
         torch.cuda.empty_cache()
             
@@ -176,9 +176,9 @@ def get_adv_score(model, device, train_loader, test_loader, attack_type):
     return adv_auc, adv_auc_in, adv_auc_out, train_feature_space
 
 def main(args):
-    print('Dataset: {}, Normal Label: {}, LR: {}'.format(args.dataset, args.label, args.lr))
+    logging.info('Dataset: {}, Normal Label: {}, LR: {}'.format(args.dataset, args.label, args.lr))
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-    print(device)
+    logging.info(device)
     model = utils.Model(args.backbone)
     model = model.to(device)
 
@@ -205,7 +205,7 @@ if __name__ == "__main__":
         level=logging.INFO,
         format="%(asctime)s [%(levelname)s] %(message)s",
         handlers=[
-            logging.FileHandler(f"./Results/MSAD-{args.dataset}-{args.label}-epochs{args.epochs}-ResNet{args.backbone}.txt"),
+            logging.FileHandler(f"./Results/MSAD-{args.dataset}-{args.label}-epochs{args.epochs}-ResNet{args.backbone}.txt", mode='a'),
             logging.StreamHandler(sys.stdout)
         ]
     )
