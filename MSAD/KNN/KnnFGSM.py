@@ -52,7 +52,7 @@ class FGSM_KNN(Attack):
 
           adv_images.requires_grad = True
 
-          _, outputs = self.model(adv_images)
+          outputs = self.model(adv_images)
 
         
           cost = loss(outputs, self.target.repeat(outputs.shape[0], 1))
