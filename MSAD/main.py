@@ -207,7 +207,8 @@ if __name__ == "__main__":
         handlers=[
             logging.FileHandler(f"./Results/MSAD-{args.dataset}-{args.label}-epochs{args.epochs}-ResNet{args.backbone}.txt", mode='a'),
             logging.StreamHandler(sys.stdout)
-        ]
+        ],
+        force = True
     )
 
     main(args)
