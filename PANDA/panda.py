@@ -199,7 +199,7 @@ if __name__ == "__main__":
         level=logging.INFO,
         format="%(asctime)s [%(levelname)s] %(message)s",
         handlers=[
-            logging.FileHandler(f"./Results/PANDA-{parser.dataset}-{parser.label}-epcohs{parser.epochs}-ResNet{parser.resnetType}.log"),
+            logging.FileHandler(f"./Results/PANDA-{args.dataset}-{args.label}-epcohs{args.epochs}-ResNet{args.resnetType}.log"),
             logging.StreamHandler()
         ]
     )
