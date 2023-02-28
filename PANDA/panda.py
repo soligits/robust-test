@@ -10,7 +10,7 @@ from tqdm import tqdm
 from KNN import KnnFGSM, KnnPGD
 import gc
 import logging
-
+import sys
 
 def train_model(model, train_loader, test_loader, device, args, ewc_loss):
     model.eval()
@@ -200,7 +200,7 @@ if __name__ == "__main__":
         format="%(asctime)s [%(levelname)s] %(message)s",
         handlers=[
             logging.FileHandler(f"./Results/PANDA-{args.dataset}-{args.label}-epcohs{args.epochs}-ResNet{args.resnet_type}.log"),
-            logging.StreamHandler()
+            logging.StreamHandler(sys.stdout)
         ]
     )
 
