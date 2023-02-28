@@ -60,7 +60,7 @@ class FGSM_KNN(Attack):
             cost = -cost
 
           grad = torch.autograd.grad(cost, adv_images, retain_graph=False, create_graph=False)[0]
-          adv_images = adv_images.detach() + self.alpha*grad.sign()
+          adv_images = adv_images.detach() + self.eps*grad.sign()
           adv_images = torch.clamp(adv_images, min=0, max=1).detach()
           del grad
           return adv_images
