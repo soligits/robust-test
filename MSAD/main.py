@@ -11,6 +11,14 @@ import logging
 import sys
 import os
 
+global Logger
+Logger = None
+
+def log(msg):
+    global Logger
+    Logger.write(f'{msg}\n')
+    print(msg)
+
 def contrastive_loss(out_1, out_2):
     out_1 = F.normalize(out_1, dim=-1)
     out_2 = F.normalize(out_2, dim=-1)
@@ -35,7 +43,7 @@ def contrastive_loss(out_1, out_2):
 def train_model(model, train_loader, test_loader, train_loader_1, device, args):
     model.eval()
     auc, feature_space = get_score(model, device, train_loader, test_loader)
-    logging.info('Epoch: {}, AUROC is: {}'.format(0, auc))
+    log('Epoch: {}, AUROC is: {}'.format(0, auc))
     optimizer = optim.SGD(model.parameters(), lr=args.lr, weight_decay=0.00005)
     center = torch.FloatTensor(feature_space).mean(dim=0)
     if args.angular:
@@ -43,16 +51,16 @@ def train_model(model, train_loader, test_loader, train_loader_1, device, args):
     center = center.to(device)
     for epoch in range(args.epochs):
         running_loss = run_epoch(model, train_loader_1, optimizer, center, device, args.angular)
-        logging.info('Epoch: {}, Loss: {}'.format(epoch + 1, running_loss))
+        log('Epoch: {}, Loss: {}'.format(epoch + 1, running_loss))
         auc, _ = get_score(model, device, train_loader, test_loader)
-        logging.info('Epoch: {}, AUROC is: {}'.format(epoch + 1, auc))
+        log('Epoch: {}, AUROC is: {}'.format(epoch + 1, auc))
     
     pgd_10_adv_auc, pgd_10_adv_auc_in, pgd_10_adv_auc_out, feature_space = get_adv_score(model, device, train_loader, test_loader, 'PGD10')
     # pgd_100_adv_auc, feature_space = get_adv_score(model, device, train_loader, test_loader, 'PGD100')
     fgsm_adv_auc, fgsm_adv_auc_in, fgsm_adv_auc_out, feature_space = get_adv_score(model, device, train_loader, test_loader, 'FGSM')
-    logging.info('PGD-10 ADV AUROC is: {}, FGSM ADV AUROC is: {}'.format(pgd_10_adv_auc, fgsm_adv_auc))
-    logging.info('IN: PGD-10 ADV AUROC is: {}, FGSM ADV AUROC is: {}'.format(pgd_10_adv_auc_in, fgsm_adv_auc_in))
-    logging.info('OUT: PGD-10 ADV AUROC is: {}, FGSM ADV AUROC is: {}'.format(pgd_10_adv_auc_out, fgsm_adv_auc_out))
+    log('PGD-10 ADV AUROC is: {}, FGSM ADV AUROC is: {}'.format(pgd_10_adv_auc, fgsm_adv_auc))
+    log('IN: PGD-10 ADV AUROC is: {}, FGSM ADV AUROC is: {}'.format(pgd_10_adv_auc_in, fgsm_adv_auc_in))
+    log('OUT: PGD-10 ADV AUROC is: {}, FGSM ADV AUROC is: {}'.format(pgd_10_adv_auc_out, fgsm_adv_auc_out))
 
 
 def run_epoch(model, train_loader, optimizer, center, device, is_angular):
@@ -176,9 +184,9 @@ def get_adv_score(model, device, train_loader, test_loader, attack_type):
     return adv_auc, adv_auc_in, adv_auc_out, train_feature_space
 
 def main(args):
-    logging.info('Dataset: {}, Normal Label: {}, LR: {}'.format(args.dataset, args.label, args.lr))
+    log('Dataset: {}, Normal Label: {}, LR: {}'.format(args.dataset, args.label, args.lr))
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-    logging.info(device)
+    log(device)
     model = utils.Model(args.backbone)
     model = model.to(device)
 
@@ -201,15 +209,17 @@ if __name__ == "__main__":
     if not os.path.exists('./Results/'):
         os.makedirs('./Results/')
 
-    logging.basicConfig(
-        level=logging.INFO,
-        format="%(asctime)s [%(levelname)s] %(message)s",
-        handlers=[
-            logging.FileHandler(f"./Results/MSAD-{args.dataset}-{args.label}-epochs{args.epochs}-ResNet{args.backbone}.txt", mode='a'),
-            logging.StreamHandler(sys.stdout)
-        ],
-        force = True
-    )
+    Logger = open(f"./Results/MSAD-{args.dataset}-{args.label}-epochs{args.epochs}-ResNet{args.backbone}.txt", "a")
+
+    # logging.basicConfig(
+    #     level=log,
+    #     format="%(asctime)s [%(levelname)s] %(message)s",
+    #     handlers=[
+    #         logging.FileHandler(f"./Results/MSAD-{args.dataset}-{args.label}-epochs{args.epochs}-ResNet{args.backbone}.log", mode='a'),
+    #         logging.StreamHandler(sys.stdout)
+    #     ],
+    #     force = True
+    # )
 
     main(args)
 
