@@ -5,7 +5,11 @@ import argparse
 import utils
 from tqdm import tqdm
 import torch.nn.functional as F
-
+from KNN import KnnFGSM, KnnPGD
+import gc
+import logging
+import sys
+import os
 
 def contrastive_loss(out_1, out_2):
     out_1 = F.normalize(out_1, dim=-1)
@@ -42,6 +46,13 @@ def train_model(model, train_loader, test_loader, train_loader_1, device, args):
         print('Epoch: {}, Loss: {}'.format(epoch + 1, running_loss))
         auc, _ = get_score(model, device, train_loader, test_loader)
         print('Epoch: {}, AUROC is: {}'.format(epoch + 1, auc))
+    
+    # pgd_10_adv_auc, pgd_10_adv_auc_in, pgd_10_adv_auc_out, feature_space = get_adv_score(model, device, train_loader, test_loader, 'PGD10')
+    # pgd_100_adv_auc, feature_space = get_adv_score(model, device, train_loader, test_loader, 'PGD100')
+    fgsm_adv_auc, fgsm_adv_auc_in, fgsm_adv_auc_out, feature_space = get_adv_score(model, device, train_loader, test_loader, 'FGSM')
+    logging.info('PGD-10 ADV AUROC is: {}, FGSM ADV AUROC is: {}'.format(0, fgsm_adv_auc))
+    logging.info('IN: PGD-10 ADV AUROC is: {}, FGSM ADV AUROC is: {}'.format(0, fgsm_adv_auc_in))
+    logging.info('OUT: PGD-10 ADV AUROC is: {}, FGSM ADV AUROC is: {}'.format(0, fgsm_adv_auc_out))
 
 
 def run_epoch(model, train_loader, optimizer, center, device, is_angular):
@@ -97,6 +108,73 @@ def get_score(model, device, train_loader, test_loader):
 
     return auc, train_feature_space
 
+def get_adv_score(model, device, train_loader, test_loader, attack_type):
+    train_feature_space = []
+    with torch.no_grad():
+        for (imgs, _) in tqdm(train_loader, desc='Train set feature extracting'):
+            imgs = imgs.to(device)
+            _, features = model(imgs)
+            train_feature_space.append(features.detach().cpu())
+        train_feature_space = torch.cat(train_feature_space, dim=0).contiguous().cpu().numpy()
+
+    mean_train = torch.mean(torch.Tensor(train_feature_space), axis=0)
+
+    gc.collect()
+    torch.cuda.empty_cache()
+
+    test_attack = None
+    if attack_type == 'PGD100':
+        test_attack = KnnPGD.PGD_KNN(model, mean_train.to(device), eps=2/255, steps=100)
+    elif attack_type == 'PGD10':
+        test_attack = KnnPGD.PGD_KNN(model, mean_train.to(device), eps=2/255, steps=10)
+    else:
+        test_attack = KnnFGSM.FGSM_KNN(model, mean_train.to(device), eps=2/255)
+
+    test_adversarial_feature_space = []
+    test_adversarial_feature_space_in = []
+    test_adversarial_feature_space_out = []
+    adv_test_labels = []
+
+    for (imgs, labels) in tqdm(test_loader, desc='Test set adversarial feature extracting'):
+        imgs = imgs.to(device)
+        labels = labels.to(device)
+        adv_imgs, adv_imgs_in, adv_imgs_out, labels= test_attack(imgs, labels)
+
+        adv_test_labels += labels.cpu().numpy().tolist()
+        del imgs, labels
+
+        _, adv_features = model(adv_imgs)
+        test_adversarial_feature_space.append(adv_features.detach().cpu())
+        del _, adv_features, adv_imgs
+
+        _, adv_features_in = model(adv_imgs_in)
+        test_adversarial_feature_space_in.append(adv_features_in.detach().cpu())
+        del _, adv_features_in, adv_imgs_in
+
+        _, adv_features_out = model(adv_imgs_out)
+        test_adversarial_feature_space_out.append(adv_features_out.detach().cpu())
+        del _, adv_features_out, adv_imgs_out
+
+        torch.cuda.empty_cache()
+            
+    test_adversarial_feature_space = torch.cat(test_adversarial_feature_space, dim=0).contiguous().detach().cpu().numpy()
+    test_adversarial_feature_space_in = torch.cat(test_adversarial_feature_space_in, dim=0).contiguous().detach().cpu().numpy()
+    test_adversarial_feature_space_out = torch.cat(test_adversarial_feature_space_out, dim=0).contiguous().detach().cpu().numpy()
+
+    adv_distances = utils.knn_score(train_feature_space, test_adversarial_feature_space)
+    adv_distances_in = utils.knn_score(train_feature_space, test_adversarial_feature_space_in)
+    adv_distances_out = utils.knn_score(train_feature_space, test_adversarial_feature_space_out)
+
+    adv_auc = roc_auc_score(adv_test_labels, adv_distances)
+    adv_auc_in = roc_auc_score(adv_test_labels, adv_distances_in)
+    adv_auc_out = roc_auc_score(adv_test_labels, adv_distances_out)
+
+    del test_adversarial_feature_space, test_adversarial_feature_space_in, test_adversarial_feature_space_out, adv_distances, adv_distances_in, adv_distances_out, adv_test_labels
+    gc.collect()
+    torch.cuda.empty_cache()
+
+    return adv_auc, adv_auc_in, adv_auc_out, train_feature_space
+
 def main(args):
     print('Dataset: {}, Normal Label: {}, LR: {}'.format(args.dataset, args.label, args.lr))
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
@@ -119,4 +197,19 @@ if __name__ == "__main__":
     parser.add_argument('--backbone', default=152, type=int, help='ResNet 18/152')
     parser.add_argument('--angular', action='store_true', help='Train with angular center loss')
     args = parser.parse_args()
+
+    if not os.path.exists('./Results/'):
+        os.makedirs('./Results/')
+
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s [%(levelname)s] %(message)s",
+        handlers=[
+            logging.FileHandler(f"./Results/MSAD-{args.dataset}-{args.label}-epochs{args.epochs}-ResNet{args.backbone}.txt"),
+            logging.StreamHandler(sys.stdout)
+        ]
+    )
+
     main(args)
+
+
