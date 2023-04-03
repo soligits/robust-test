@@ -14,6 +14,10 @@ import os
 from torch.utils.data import Dataset
 from PIL import Image
 from glob import glob
+from robustness import model_utils
+from torchvision import models
+from robustness.datasets import ImageNet
+
 
 class GaussianBlur(object):
     """Gaussian blur augmentation in SimCLR https://arxiv.org/abs/2002.05709"""
@@ -87,11 +91,16 @@ class Transform:
 
 
 class Model(torch.nn.Module):
-    def __init__(self, backbone):
+    def __init__(self, backbone, path="./pretrained_models/resnet50.ckpt"):
         super().__init__()
         self.norm = lambda x: ( x - mu ) / std
-        if backbone == 152:
+        if backbone == '152':
             self.backbone = models.resnet152(pretrained=True)
+        elif backbone == 'robust50':
+            model, _ = resume_finetuning_from_checkpoint(path)
+            self.backbone = lambda x: model(x)[0]
+        elif backbone == '50':
+            self.backbone = models.resnet50(pretrained=True)
         else:
             self.backbone = models.resnet18(pretrained=True)
         self.backbone.fc = torch.nn.Identity()
@@ -102,6 +111,16 @@ class Model(torch.nn.Module):
         z1 = self.backbone(x)
         z_n = F.normalize(z1, dim=-1)
         return z_n
+
+
+def resume_finetuning_from_checkpoint(finetuned_model_path):
+    '''Given arguments, dataset object and a finetuned model_path, returns a model
+    with loaded weights and returns the checkpoint necessary for resuming training.
+    '''
+    print('[Resuming finetuning from a checkpoint...]')
+    model, checkpoint = model_utils.make_and_restore_model(arch='resnet50', dataset=ImageNet('/imagenet/'), resume_path=finetuned_model_path)
+    return model, checkpoint
+
 
 def freeze_parameters(model, backbone, train_fc=False):
     if not train_fc:

@@ -189,7 +189,7 @@ def main(args):
     log('Dataset: {}, Normal Label: {}, LR: {}'.format(args.dataset, args.label, args.lr))
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     log(device)
-    model = utils.Model(args.backbone)
+    model = utils.Model(str(args.backbone), args.model_path)
     model = model.to(device)
 
     train_loader, test_loader, train_loader_1 = utils.get_loaders(dataset=args.dataset, label_class=args.label, batch_size=args.batch_size, backbone=args.backbone, path=args.dataset_path)
@@ -200,11 +200,12 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='')
     parser.add_argument('--dataset', default='cifar10')
     parser.add_argument('--dataset_path', default='~/cifar10', type=str)
+    parser.add_argument('--model_path', default='./pretrained_models/resnet50.ckpt', type=str)
     parser.add_argument('--epochs', default=20, type=int, metavar='epochs', help='number of epochs')
     parser.add_argument('--label', default=0, type=int, help='The normal class')
     parser.add_argument('--lr', type=float, default=1e-5, help='The initial learning rate.')
     parser.add_argument('--batch_size', default=128, type=int)
-    parser.add_argument('--backbone', default=152, type=int, help='ResNet 18/152')
+    parser.add_argument('--backbone', default='152', type=str, help='ResNet 18/152')
     parser.add_argument('--angular', action='store_true', help='Train with angular center loss')
     args = parser.parse_args()
 
