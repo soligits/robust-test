@@ -5,7 +5,7 @@ import argparse
 import utils
 from tqdm import tqdm
 import torch.nn.functional as F
-from KNN import KnnFGSM, KnnPGD
+from KNN import KnnFGSM, KnnPGD, KnnAdvancedPGD
 import gc
 import logging
 import sys
@@ -135,6 +135,8 @@ def get_adv_score(model, device, train_loader, test_loader, attack_type):
         test_attack = KnnPGD.PGD_KNN(model, mean_train.to(device), eps=2/255, steps=100)
     elif attack_type == 'PGD10':
         test_attack = KnnPGD.PGD_KNN(model, mean_train.to(device), eps=2/255, steps=10)
+    elif attack_type == 'PGD10A':
+        test_attack = KnnAdvancedPGD.PGD_KNN_ADVANCED(model, train_feature_space, eps=2/255, steps=10)
     else:
         test_attack = KnnFGSM.FGSM_KNN(model, mean_train.to(device), eps=2/255)
 
