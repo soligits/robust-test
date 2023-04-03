@@ -46,7 +46,6 @@ class PGD_KNN_ADVANCED(Attack):
         anomaly_images = images[labels == 1]
 
         normal_images_np = self.train_embeddings.reshape(self.train_embeddings.shape[0], -1)
-        print(normal_images_np.shape)
         index = faiss.IndexFlatL2(normal_images_np.shape[1])
         res = faiss.StandardGpuResources()
         index = faiss.index_cpu_to_gpu(res, 0, index)
