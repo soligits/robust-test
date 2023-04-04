@@ -97,8 +97,7 @@ class Model(torch.nn.Module):
         if backbone == '152':
             self.backbone = models.resnet152(pretrained=True)
         elif backbone == 'robust50':
-            model, _ = resume_finetuning_from_checkpoint(path)
-            self.backbone = lambda x: model(x)[0]
+            self.backbone = RobustModel(path=path)
         elif backbone == '50':
             self.backbone = models.resnet50(pretrained=True)
         else:
@@ -111,6 +110,14 @@ class Model(torch.nn.Module):
         z1 = self.backbone(x)
         z_n = F.normalize(z1, dim=-1)
         return z_n
+
+
+class RobustModel(torch.nn.Module):
+    def __init__(self, path="./pretrained_models/resnet50.ckpt"):
+        self.model, _ = resume_finetuning_from_checkpoint(path)
+
+    def forward(self, x):
+        return self.model(x)[0]
 
 
 def resume_finetuning_from_checkpoint(finetuned_model_path):
