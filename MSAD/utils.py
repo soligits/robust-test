@@ -117,9 +117,10 @@ class RobustModel(torch.nn.Module):
     def __init__(self, path="./pretrained_models/resnet50.ckpt"):
         super().__init__()
         self.model, _ = resume_finetuning_from_checkpoint(path)
+        self.model = self.model.model
 
     def forward(self, x):
-        return self.model(x)[0]
+        return self.model(x)
 
 
 def resume_finetuning_from_checkpoint(finetuned_model_path):
