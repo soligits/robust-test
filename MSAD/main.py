@@ -216,7 +216,7 @@ if __name__ == "__main__":
                     type=str,
                     help='ResNet Backbone')
 
-    parser.add_argument('--test_attacks', help='Desired Attacks for adversarial test', nargs='+', action='extend')
+    parser.add_argument('--test_attacks', help='Desired Attacks for adversarial test', nargs='+')
     parser.add_argument('--angular', action='store_true', help='Train with angular center loss')
     args = parser.parse_args()
 
