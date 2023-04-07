@@ -223,7 +223,7 @@ if __name__ == "__main__":
     if not os.path.exists('./Results/'):
         os.makedirs('./Results/')
 
-    Logger = open(f"./Results/MSAD-{args.dataset}-{args.label}-epochs{args.epochs}-ResNet{args.backbone}.txt", "a", encoding='utf-8')
+    Logger = open(f"./Results/MSAD-{args.dataset}-{args.label}-epochs{args.epochs}-ResNet{args.backbone}-eps{eval(args.eps)}.txt", "a", encoding='utf-8')
 
     main(args)
 
