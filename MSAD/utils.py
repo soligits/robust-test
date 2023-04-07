@@ -138,7 +138,7 @@ class RobustModel(torch.nn.Module):
     def __init__(self, arch='resnet50_linf_eps2.0', path="./pretrained_models/"):
         super().__init__()
         path = download_and_load_backnone(robust_urls[arch], arch, path)
-        self.model, _ = resume_finetuning_from_checkpoint(path, arch)
+        self.model, _ = resume_finetuning_from_checkpoint(path, '_'.join(arch.split('_')[:-2]))
         self.model = self.model.model
 
     def forward(self, x):
@@ -157,6 +157,7 @@ def resume_finetuning_from_checkpoint(finetuned_model_path, arch):
 def download_and_load_backnone(url, model_name, path):
     arch = '_'.join(model_name.split('_')[:-2])
     print(arch, model_name)
+    os.makedirs(path, exist_ok=True)
     ckpt_path = os.path.join(path, f'{model_name}.ckpt')
     
     # Check if checkpoint file already exists

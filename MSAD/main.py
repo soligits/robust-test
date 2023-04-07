@@ -205,7 +205,7 @@ if __name__ == "__main__":
     parser.add_argument('--epochs', default=20, type=int, metavar='epochs', help='number of epochs')
     parser.add_argument('--label', default=0, type=int, help='The normal class')
     parser.add_argument('--lr', type=float, default=1e-5, help='The initial learning rate.')
-    parser.add_argument('--eps', type=float, default='2/255', help='The esp for attack.')
+    parser.add_argument('--eps', type=str, default='2/255', help='The esp for attack.')
     parser.add_argument('--batch_size', default=128, type=int)
     parser.add_argument('--backbone',
                     choices=['resnet18_linf_eps0.5', 'resnet18_linf_eps1.0', 'resnet18_linf_eps2.0', 'resnet18_linf_eps4.0', 'resnet18_linf_eps8.0',
