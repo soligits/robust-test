@@ -18,6 +18,7 @@ from robustness import model_utils
 from torchvision import models
 from robustness.datasets import ImageNet
 import requests
+import subprocess
 
 class GaussianBlur(object):
     """Gaussian blur augmentation in SimCLR https://arxiv.org/abs/2002.05709"""
@@ -369,7 +370,9 @@ class MVTecDataset(torch.utils.data.Dataset):
         progress_bar.close()
 
 
-        os.system(f"tar -xf {os.path.join(root, 'mvtec_anomaly_detection.tar.xz')} -C {dataset_dir}")
+        tar_command = ['tar', '-xf', os.path.join(root, 'mvtec_anomaly_detection.tar.xz'), '-C', dataset_dir]
+        subprocess.run(tar_command)
+
 
 
 def get_MVTEC(normal_class_indx, batch_size, path, backbone):
