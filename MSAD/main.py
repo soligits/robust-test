@@ -55,13 +55,13 @@ def train_model(model, train_loader, test_loader, train_loader_1, device, args):
         auc, _ = get_score(model, device, train_loader, test_loader)
         log('Epoch: {}, AUROC is: {}'.format(epoch + 1, auc))
     
-    pgd_10_adv_auc, pgd_10_adv_auc_in, pgd_10_adv_auc_out, feature_space = get_adv_score(model, device, train_loader, test_loader, 'PGD10')
-    pgd_10_adv_auc_advanced, pgd_10_adv_auc_in_advanced, pgd_10_adv_auc_out_advanced, feature_space = get_adv_score(model, device, train_loader, test_loader, 'PGD10A')
-    fgsm_adv_auc, fgsm_adv_auc_in, fgsm_adv_auc_out, feature_space = get_adv_score(model, device, train_loader, test_loader, 'FGSM')
-    log('PGD-10 ADV AUROC is: {}, PGD-10 ADV AUROC Advanced is: {},FGSM ADV AUROC is: {}'.format(pgd_10_adv_auc, pgd_10_adv_auc_advanced, fgsm_adv_auc))
-    log('IN: PGD-10 ADV AUROC is: {}, IN: PGD-10 ADV AUROC Advanced is: {}, FGSM ADV AUROC is: {}'.format(pgd_10_adv_auc_in, pgd_10_adv_auc_in_advanced, fgsm_adv_auc_in))
-    log('OUT: PGD-10 ADV AUROC is: {}, OUT: PGD-10 ADV AUROC Advanced is: {}, FGSM ADV AUROC is: {}'.format(pgd_10_adv_auc_out, pgd_10_adv_auc_out_advanced, fgsm_adv_auc_out))
 
+    for test_attack in args.test_attacks:
+        log(f'\nStarting the test for {test_attack} ...\n')
+        adv_auc, adv_auc_in, adv_auc_out, feature_space = get_adv_score(model, device, train_loader, test_loader, test_attack, eval(args.eps))
+        log(f'{test_attack} ADV AUROC is: {adv_auc}')
+        log(f'IN: {test_attack} ADV AUROC is: {adv_auc_in}')
+        log(f'OUT: {test_attack} ADV AUROC is: {adv_auc_out}')
 
 def run_epoch(model, train_loader, optimizer, center, device, is_angular):
     total_loss, total_num = 0.0, 0
@@ -116,7 +116,7 @@ def get_score(model, device, train_loader, test_loader):
 
     return auc, train_feature_space
 
-def get_adv_score(model, device, train_loader, test_loader, attack_type):
+def get_adv_score(model, device, train_loader, test_loader, attack_type, eps):
     train_feature_space = []
     with torch.no_grad():
         for (imgs, _) in tqdm(train_loader, desc='Train set feature extracting'):
@@ -130,15 +130,16 @@ def get_adv_score(model, device, train_loader, test_loader, attack_type):
     gc.collect()
     torch.cuda.empty_cache()
 
+
     test_attack = None
-    if attack_type == 'PGD100':
-        test_attack = KnnPGD.PGD_KNN(model, mean_train.to(device), eps=2/255, steps=100)
-    elif attack_type == 'PGD10':
-        test_attack = KnnPGD.PGD_KNN(model, mean_train.to(device), eps=2/255, steps=10)
-    elif attack_type == 'PGD10A':
-        test_attack = KnnAdvancedPGD.PGD_KNN_ADVANCED(model, train_feature_space, eps=2/255, steps=10)
+    if attack_type.startswith('PGDA'):
+        steps = int(attack_type.split('-')[1])
+        test_attack = KnnAdvancedPGD.PGD_KNN_ADVANCED(model, train_feature_space, eps=eps, steps=steps, alpha = (2.5 * eps) / steps)
+    elif attack_type.startswith('PGD'):
+        steps = int(attack_type.split('-')[1])
+        test_attack = KnnPGD.PGD_KNN(model, mean_train.to(device), eps=eps, steps=steps, alpha = (2.5 * eps) / steps)
     else:
-        test_attack = KnnFGSM.FGSM_KNN(model, mean_train.to(device), eps=2/255)
+        test_attack = KnnFGSM.FGSM_KNN(model, mean_train.to(device), eps=eps)
 
     test_adversarial_feature_space = []
     test_adversarial_feature_space_in = []
@@ -204,25 +205,25 @@ if __name__ == "__main__":
     parser.add_argument('--epochs', default=20, type=int, metavar='epochs', help='number of epochs')
     parser.add_argument('--label', default=0, type=int, help='The normal class')
     parser.add_argument('--lr', type=float, default=1e-5, help='The initial learning rate.')
+    parser.add_argument('--eps', type=float, default='2/255', help='The esp for attack.')
     parser.add_argument('--batch_size', default=128, type=int)
-    parser.add_argument('--backbone', default='152', type=str, help='ResNet 18/152')
+    parser.add_argument('--backbone',
+                    choices=['resnet18_linf_eps0.5', 'resnet18_linf_eps1.0', 'resnet18_linf_eps2.0', 'resnet18_linf_eps4.0', 'resnet18_linf_eps8.0',
+                             'resnet50_linf_eps0.5', 'resnet50_linf_eps1.0', 'resnet50_linf_eps2.0', 'resnet50_linf_eps4.0', 'resnet50_linf_eps8.0',
+                             'wide_resnet50_linf_eps0.5', 'wide_resnet50_linf_eps1.0', 'wide_resnet50_linf_eps2.0', 'wide_resnet50_linf_eps4.0', 'wide_resnet50_linf_eps8.0',
+                             '18', '50', '152'],
+                    default='18',
+                    type=str,
+                    help='ResNet Backbone')
+
+    parser.add_argument('--test_attacks', help='Desired Attacks for adversarial test', nargs='+', action='extend')
     parser.add_argument('--angular', action='store_true', help='Train with angular center loss')
     args = parser.parse_args()
 
     if not os.path.exists('./Results/'):
         os.makedirs('./Results/')
 
-    Logger = open(f"./Results/MSAD-{args.dataset}-{args.label}-epochs{args.epochs}-ResNet{args.backbone}.txt", "a")
-
-    # logging.basicConfig(
-    #     level=log,
-    #     format="%(asctime)s [%(levelname)s] %(message)s",
-    #     handlers=[
-    #         logging.FileHandler(f"./Results/MSAD-{args.dataset}-{args.label}-epochs{args.epochs}-ResNet{args.backbone}.log", mode='a'),
-    #         logging.StreamHandler(sys.stdout)
-    #     ],
-    #     force = True
-    # )
+    Logger = open(f"./Results/MSAD-{args.dataset}-{args.label}-epochs{args.epochs}-ResNet{args.backbone}.txt", "a", encoding='utf-8')
 
     main(args)
 

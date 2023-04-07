@@ -17,7 +17,7 @@ from glob import glob
 from robustness import model_utils
 from torchvision import models
 from robustness.datasets import ImageNet
-
+import requests
 
 class GaussianBlur(object):
     """Gaussian blur augmentation in SimCLR https://arxiv.org/abs/2002.05709"""
@@ -91,17 +91,18 @@ class Transform:
 
 
 class Model(torch.nn.Module):
-    def __init__(self, backbone, path="./pretrained_models/resnet50.ckpt"):
+    def __init__(self, backbone='18', path="./pretrained_models/"):
         super().__init__()
         self.norm = lambda x: ( x - mu ) / std
         if backbone == '152':
             self.backbone = models.resnet152(pretrained=True)
-        elif backbone == 'robust50':
-            self.backbone = RobustModel(path=path)
         elif backbone == '50':
             self.backbone = models.resnet50(pretrained=True)
-        else:
+        elif backbone == '18':
             self.backbone = models.resnet18(pretrained=True)
+        else:
+            self.backbone = RobustModel(path=path, arch=backbone)
+            
         self.backbone.fc = torch.nn.Identity()
         freeze_parameters(self.backbone, backbone, train_fc=False)
 
@@ -112,25 +113,63 @@ class Model(torch.nn.Module):
         return z_n
 
 
+robust_urls = {
+    'resnet18_linf_eps0.5': 'https://robustnessws4285631339.blob.core.windows.net/public-models/robust_imagenet/resnet18_linf_eps0.5.ckpt?sv=2020-08-04&ss=bfqt&srt=sco&sp=rwdlacupitfx&se=2051-10-06T07:09:59Z&st=2021-10-05T23:09:59Z&spr=https,http&sig=U69sEOSMlliobiw8OgiZpLTaYyOA5yt5pHHH5%2FKUYgI%3D',
+    'resnet18_linf_eps1.0': 'https://robustnessws4285631339.blob.core.windows.net/public-models/robust_imagenet/resnet18_linf_eps1.0.ckpt?sv=2020-08-04&ss=bfqt&srt=sco&sp=rwdlacupitfx&se=2051-10-06T07:09:59Z&st=2021-10-05T23:09:59Z&spr=https,http&sig=U69sEOSMlliobiw8OgiZpLTaYyOA5yt5pHHH5%2FKUYgI%3D',
+    'resnet18_linf_eps2.0': 'https://robustnessws4285631339.blob.core.windows.net/public-models/robust_imagenet/resnet18_linf_eps2.0.ckpt?sv=2020-08-04&ss=bfqt&srt=sco&sp=rwdlacupitfx&se=2051-10-06T07:09:59Z&st=2021-10-05T23:09:59Z&spr=https,http&sig=U69sEOSMlliobiw8OgiZpLTaYyOA5yt5pHHH5%2FKUYgI%3D',
+    'resnet18_linf_eps4.0': 'https://robustnessws4285631339.blob.core.windows.net/public-models/robust_imagenet/resnet18_linf_eps4.0.ckpt?sv=2020-08-04&ss=bfqt&srt=sco&sp=rwdlacupitfx&se=2051-10-06T07:09:59Z&st=2021-10-05T23:09:59Z&spr=https,http&sig=U69sEOSMlliobiw8OgiZpLTaYyOA5yt5pHHH5%2FKUYgI%3D',
+    'resnet18_linf_eps8.0': 'https://robustnessws4285631339.blob.core.windows.net/public-models/robust_imagenet/resnet18_linf_eps8.0.ckpt?sv=2020-08-04&ss=bfqt&srt=sco&sp=rwdlacupitfx&se=2051-10-06T07:09:59Z&st=2021-10-05T23:09:59Z&spr=https,http&sig=U69sEOSMlliobiw8OgiZpLTaYyOA5yt5pHHH5%2FKUYgI%3D',
+
+    'resnet50_linf_eps0.5': 'https://robustnessws4285631339.blob.core.windows.net/public-models/robust_imagenet/resnet50_linf_eps0.5.ckpt?sv=2020-08-04&ss=bfqt&srt=sco&sp=rwdlacupitfx&se=2051-10-06T07:09:59Z&st=2021-10-05T23:09:59Z&spr=https,http&sig=U69sEOSMlliobiw8OgiZpLTaYyOA5yt5pHHH5%2FKUYgI%3D',
+    'resnet50_linf_eps1.0': 'https://robustnessws4285631339.blob.core.windows.net/public-models/robust_imagenet/resnet50_linf_eps1.0.ckpt?sv=2020-08-04&ss=bfqt&srt=sco&sp=rwdlacupitfx&se=2051-10-06T07:09:59Z&st=2021-10-05T23:09:59Z&spr=https,http&sig=U69sEOSMlliobiw8OgiZpLTaYyOA5yt5pHHH5%2FKUYgI%3D',
+    'resnet50_linf_eps2.0': 'https://robustnessws4285631339.blob.core.windows.net/public-models/robust_imagenet/resnet50_linf_eps2.0.ckpt?sv=2020-08-04&ss=bfqt&srt=sco&sp=rwdlacupitfx&se=2051-10-06T07:09:59Z&st=2021-10-05T23:09:59Z&spr=https,http&sig=U69sEOSMlliobiw8OgiZpLTaYyOA5yt5pHHH5%2FKUYgI%3D',
+    'resnet50_linf_eps4.0': 'https://robustnessws4285631339.blob.core.windows.net/public-models/robust_imagenet/resnet50_linf_eps4.0.ckpt?sv=2020-08-04&ss=bfqt&srt=sco&sp=rwdlacupitfx&se=2051-10-06T07:09:59Z&st=2021-10-05T23:09:59Z&spr=https,http&sig=U69sEOSMlliobiw8OgiZpLTaYyOA5yt5pHHH5%2FKUYgI%3D',
+    'resnet50_linf_eps8.0': 'https://robustnessws4285631339.blob.core.windows.net/public-models/robust_imagenet/resnet50_linf_eps8.0.ckpt?sv=2020-08-04&ss=bfqt&srt=sco&sp=rwdlacupitfx&se=2051-10-06T07:09:59Z&st=2021-10-05T23:09:59Z&spr=https,http&sig=U69sEOSMlliobiw8OgiZpLTaYyOA5yt5pHHH5%2FKUYgI%3D',
+    
+    'wide_resnet50_2_linf_eps0.5': 'https://robustnessws4285631339.blob.core.windows.net/public-models/robust_imagenet/wide_resnet50_2_linf_eps0.5.ckpt?sv=2020-08-04&ss=bfqt&srt=sco&sp=rwdlacupitfx&se=2051-10-06T07:09:59Z&st=2021-10-05T23:09:59Z&spr=https,http&sig=U69sEOSMlliobiw8OgiZpLTaYyOA5yt5pHHH5%2FKUYgI%3D',
+    'wide_resnet50_2_linf_eps1.0': 'https://robustnessws4285631339.blob.core.windows.net/public-models/robust_imagenet/wide_resnet50_2_linf_eps1.0.ckpt?sv=2020-08-04&ss=bfqt&srt=sco&sp=rwdlacupitfx&se=2051-10-06T07:09:59Z&st=2021-10-05T23:09:59Z&spr=https,http&sig=U69sEOSMlliobiw8OgiZpLTaYyOA5yt5pHHH5%2FKUYgI%3D',
+    'wide_resnet50_2_linf_eps2.0': 'https://robustnessws4285631339.blob.core.windows.net/public-models/robust_imagenet/wide_resnet50_2_linf_eps2.0.ckpt?sv=2020-08-04&ss=bfqt&srt=sco&sp=rwdlacupitfx&se=2051-10-06T07:09:59Z&st=2021-10-05T23:09:59Z&spr=https,http&sig=U69sEOSMlliobiw8OgiZpLTaYyOA5yt5pHHH5%2FKUYgI%3D',
+    'wide_resnet50_2_linf_eps4.0': 'https://robustnessws4285631339.blob.core.windows.net/public-models/robust_imagenet/wide_resnet50_2_linf_eps4.0.ckpt?sv=2020-08-04&ss=bfqt&srt=sco&sp=rwdlacupitfx&se=2051-10-06T07:09:59Z&st=2021-10-05T23:09:59Z&spr=https,http&sig=U69sEOSMlliobiw8OgiZpLTaYyOA5yt5pHHH5%2FKUYgI%3D',
+    'wide_resnet50_2_linf_eps8.0': 'https://robustnessws4285631339.blob.core.windows.net/public-models/robust_imagenet/wide_resnet50_2_linf_eps8.0.ckpt?sv=2020-08-04&ss=bfqt&srt=sco&sp=rwdlacupitfx&se=2051-10-06T07:09:59Z&st=2021-10-05T23:09:59Z&spr=https,http&sig=U69sEOSMlliobiw8OgiZpLTaYyOA5yt5pHHH5%2FKUYgI%3D',
+}
+
 class RobustModel(torch.nn.Module):
     
-    def __init__(self, path="./pretrained_models/resnet50.ckpt"):
+    def __init__(self, arch='resnet50_linf_eps2.0', path="./pretrained_models/"):
         super().__init__()
-        self.model, _ = resume_finetuning_from_checkpoint(path)
+        path = download_and_load_backnone(robust_urls[arch], arch, path)
+        self.model, _ = resume_finetuning_from_checkpoint(path, arch)
         self.model = self.model.model
 
     def forward(self, x):
         return self.model(x)
 
 
-def resume_finetuning_from_checkpoint(finetuned_model_path):
+def resume_finetuning_from_checkpoint(finetuned_model_path, arch):
     '''Given arguments, dataset object and a finetuned model_path, returns a model
     with loaded weights and returns the checkpoint necessary for resuming training.
     '''
     print('[Resuming finetuning from a checkpoint...]')
-    model, checkpoint = model_utils.make_and_restore_model(arch='resnet50', dataset=ImageNet('/imagenet/'), resume_path=finetuned_model_path)
+    model, checkpoint = model_utils.make_and_restore_model(arch=arch, dataset=ImageNet('/imagenet/'), resume_path=finetuned_model_path)
     return model, checkpoint
 
+
+def download_and_load_backnone(url, model_name, path):
+    arch = '_'.join(model_name.split('_')[:-2])
+    print(arch, model_name)
+    ckpt_path = os.path.join(path, f'{model_name}.ckpt')
+    
+    # Check if checkpoint file already exists
+    if os.path.exists(ckpt_path):
+        print(f'{model_name} checkpoint file already exists.')
+        return ckpt_path
+
+    r = requests.get(url, allow_redirects=True)  # to get content after redirection
+    ckpt_url = r.url
+    with open(ckpt_path, 'wb') as f:
+        f.write(r.content)
+
+    return ckpt_path
 
 def freeze_parameters(model, backbone, train_fc=False):
     if not train_fc:
