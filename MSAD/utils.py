@@ -334,7 +334,7 @@ class MVTecDataset(torch.utils.data.Dataset):
         image = Image.open(image_file).convert('RGB')
 
         if self.transform is not None:
-            image = self.transform(image_file)
+            image = self.transform(image)
 
         if os.path.dirname(image_file).endswith("good"):
             target = 0
