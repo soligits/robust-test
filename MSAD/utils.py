@@ -9,7 +9,7 @@ from PIL import ImageFilter
 import random
 from torchvision.transforms import InterpolationMode
 BICUBIC = InterpolationMode.BICUBIC
-from torchvision.datasets import CIFAR10, MNIST, SVHN, FashionMNIST
+from torchvision.datasets import CIFAR10, MNIST, SVHN, FashionMNIST, CIFAR100
 import os
 from torch.utils.data import Dataset
 from PIL import Image
@@ -202,6 +202,8 @@ def get_loaders(dataset, label_class, batch_size, path, backbone):
 
     if dataset == 'cifar10':
         return get_CIFAR10(label_class, batch_size, path, backbone)
+    elif dataset == 'cifar100':
+        return get_CIFAR100(label_class, batch_size, path, backbone)
     elif dataset == 'mnist':
         return get_MNIST(label_class, batch_size, path, backbone)
     elif dataset == 'fashion':
@@ -239,6 +241,47 @@ def get_CIFAR10(normal_class_indx, batch_size, path, backbone):
 
     return train_loader, test_loader, train_loader_msad
 
+
+def sparse2coarse(targets):
+    """Convert Pytorch CIFAR100 sparse targets to coarse targets.
+    Usage:
+        trainset = torchvision.datasets.CIFAR100(path)
+        trainset.targets = sparse2coarse(trainset.targets)
+    """
+    coarse_labels = np.array([4, 1, 14, 8, 0, 6, 7, 7, 18, 3,
+                              3, 14, 9, 18, 7, 11, 3, 9, 7, 11,
+                              6, 11, 5, 10, 7, 6, 13, 15, 3, 15,
+                              0, 11, 1, 10, 12, 14, 16, 9, 11, 5,
+                              5, 19, 8, 8, 15, 13, 14, 17, 18, 10,
+                              16, 4, 17, 4, 2, 0, 17, 4, 18, 17,
+                              10, 3, 2, 12, 12, 16, 12, 1, 9, 19,
+                              2, 10, 0, 1, 16, 12, 9, 13, 15, 13,
+                              16, 19, 2, 4, 6, 19, 5, 5, 8, 19,
+                              18, 1, 2, 15, 6, 0, 17, 8, 14, 13])
+    return coarse_labels[targets]
+
+
+def get_CIFAR100(normal_class_indx, batch_size, path, backbone):
+    transform = transform_color if backbone == 152 else transform_resnet18
+
+    trainset = CIFAR100(root=path, train=True, download=True, transform=transform)
+    trainset.targets = sparse2coarse(trainset.targets)
+    trainset.data = trainset.data[np.array(trainset.targets) == normal_class_indx]
+    trainset.targets  = [0 for t in trainset.targets]
+    train_loader = torch.utils.data.DataLoader(trainset, batch_size=batch_size, shuffle=True, num_workers=2)
+
+    testset = CIFAR100(root=path, train=False, download=True, transform=transform)
+    testset.targets = sparse2coarse(testset.targets)
+    testset.targets  = [int(t!=normal_class_indx) for t in testset.targets]
+    test_loader = torch.utils.data.DataLoader(testset, batch_size=batch_size, shuffle=False, num_workers=2)
+
+    trainset_msad = CIFAR100(root=path, train=True, download=True, transform=Transform())
+    trainset_msad.targets = sparse2coarse(trainset_msad.targets)
+    trainset_msad.data = trainset_msad.data[np.array(trainset_msad.targets) == normal_class_indx]
+    trainset_msad.targets  = [0 for t in trainset_msad.targets]
+    train_loader_msad = torch.utils.data.DataLoader(trainset_msad, batch_size=batch_size, shuffle=True, num_workers=2)
+
+    return train_loader, test_loader, train_loader_msad
 
 
 def get_MNIST(normal_class_indx, batch_size, path, backbone):
