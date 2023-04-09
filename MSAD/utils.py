@@ -212,6 +212,8 @@ def get_loaders(dataset, label_class, batch_size, path, backbone):
         return get_SVHN(label_class, batch_size, path, backbone)
     elif dataset == 'mvtec':
         return get_MVTEC(label_class, batch_size, path, backbone)
+    elif dataset == 'mri':
+        return get_BrainMRI(batch_size, path, backbone)
     else:
         raise Exception("Dataset is not supported yet. ")
         exit()
@@ -430,5 +432,101 @@ def get_MVTEC(normal_class_indx, batch_size, path, backbone):
 
     trainset_msad = MVTecDataset(path, normal_class, Transform(), train=True)
     train_loader_msad = torch.utils.data.DataLoader(trainset_msad, shuffle=True, batch_size=batch_size)
+
+    return train_loader, test_loader, train_loader_msad
+
+
+import zipfile
+import shutil
+
+class BrainMRI(torch.utils.data.Dataset):
+    def __init__(self, transform=None, target_transform=None, train=True, normal=True,    normal_only=False):
+        self._download_and_extract()
+        self.transform = transform
+        if train:
+            self.image_files = glob(
+                os.path.join( './MRI', "./Training", "notumor", "*.jpg")
+            )
+        else:
+          image_files = glob(os.path.join( './MRI', "./Testing", "*", "*.jpg"))
+          normal_image_files = glob(os.path.join( './MRI', "./Testing", "notumor", "*.jpg"))
+          anomaly_image_files = list(set(image_files) - set(normal_image_files))
+          self.image_files = image_files
+
+        self.image_files.sort(key=lambda y: y.lower())
+        self.train = train
+    
+    def _download_and_extract(self):
+        google_id = '1hypceBaSSYsFDl2ljM-lDffKVrhSB-mK'
+        file_path = os.path.join('./MRI', 'archive(3).zip')
+
+        if os.path.exists(file_path):
+            return
+
+        if not os.path.exists('./MRI'):
+            os.makedirs('./MRI')
+
+        if not os.path.exists(file_path):
+            subprocess.run(['gdown', google_id, '-O', file_path])
+        
+
+        with zipfile.ZipFile("./MRI/archive(3).zip", 'r') as zip_ref:
+            zip_ref.extractall("./MRI/")
+
+
+        os.rename(  "./MRI/Training/glioma", "./MRI/Training/glioma_tr")
+        os.rename(  "./MRI/Training/meningioma", "./MRI/Training/meningioma_tr")
+        os.rename(  "./MRI/Training/pituitary", "./MRI/Training/pituitary_tr")
+        
+        shutil.move("./MRI/Training/glioma_tr","./MRI/Testing")
+        shutil.move("./MRI/Training/meningioma_tr","./MRI/Testing")
+        shutil.move("./MRI/Training/pituitary_tr","./MRI/Testing")
+
+
+    def __getitem__(self, index):
+        image_file = self.image_files[index]
+        image = Image.open(image_file)
+        image = image.convert('RGB')
+        if self.transform is not None:
+            image = self.transform(image)
+
+        if os.path.dirname(image_file).endswith("notumor"):
+            target = 0
+        else:
+            target = 1
+
+        return image, target
+
+    def __len__(self):
+        return len(self.image_files)
+
+
+def get_BrainMRI(batch_size, path, backbone):
+
+    transform_mri = transforms.Compose([
+                                transforms.Resize((224, 224)),
+                                transforms.ToTensor(),
+                                transforms.Grayscale(num_output_channels=3)
+
+
+                                
+                                ])
+    transform_aug_mri = transforms.Compose([
+                                    transforms.Resize((224, 224)),
+                                    transforms.ToTensor(),
+                                    transforms.RandomHorizontalFlip(),
+                                
+                                ])
+
+    
+    trainset = BrainMRI(transform_aug_mri, train=True )
+    train_loader = torch.utils.data.DataLoader(trainset, shuffle=True, batch_size=batch_size)
+
+
+    testset = BrainMRI(transform_mri, train=False )
+    test_loader = torch.utils.data.DataLoader(testset, shuffle=False, batch_size=batch_size)
+
+    trainset_msad = BrainMRI(transform_aug_mri, train=True )
+    train_loader_msad = torch.utils.data.DataLoader(trainset, shuffle=True, batch_size=batch_size)
 
     return train_loader, test_loader, train_loader_msad
