@@ -457,8 +457,8 @@ class BrainMRI(torch.utils.data.Dataset):
         self.train = train
     
     def _download_and_extract(self):
-        google_id = '1hypceBaSSYsFDl2ljM-lDffKVrhSB-mK'
-        file_path = os.path.join('./MRI', 'archive(3).zip')
+        google_id = '1AOPOfQ05aSrr2RkILipGmEkgLDrZCKz_'
+        file_path = os.path.join('./MRI', 'Training')
 
         if os.path.exists(file_path):
             return
@@ -467,12 +467,10 @@ class BrainMRI(torch.utils.data.Dataset):
             os.makedirs('./MRI')
 
         if not os.path.exists(file_path):
-            subprocess.run(['gdown', google_id, '-O', file_path])
+            subprocess.run(['gdown', google_id, '-O', './MRI/archive(3).zip'])
         
-
         with zipfile.ZipFile("./MRI/archive(3).zip", 'r') as zip_ref:
             zip_ref.extractall("./MRI/")
-
 
         os.rename(  "./MRI/Training/glioma", "./MRI/Training/glioma_tr")
         os.rename(  "./MRI/Training/meningioma", "./MRI/Training/meningioma_tr")
