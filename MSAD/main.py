@@ -241,7 +241,7 @@ if __name__ == "__main__":
         assert args.target_dataset is None
 
 
-    os.makedirs('./Results/{args.test_type}/', exist_ok=True)
+    os.makedirs(f'./Results/{args.test_type}/', exist_ok=True)
 
     # Set the file name
     file_name = f"MSAD-{args.source_dataset}-{args.label}-epochs{args.epochs}-ResNet{args.backbone}-eps-{eval(args.eps)}-{args.test_type}.txt"
