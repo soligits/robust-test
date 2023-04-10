@@ -202,7 +202,7 @@ def get_loaders(source_dataset, target_datset, label_class, batch_size, source_p
 
     trainset, trainset_msad, normal_labels  = get_train_dataset(source_dataset, test_type, label_class, source_path, backbone)
 
-    print(f'Train Dataset: {source_dataset}, Normal Classes: {normal_labels}, length Trainset: {trainset}')
+    print(f'Train Dataset: {source_dataset}, Normal Classes: {normal_labels}, length Trainset: {len(trainset)}')
 
     testsets = []
 
@@ -214,7 +214,7 @@ def get_loaders(source_dataset, target_datset, label_class, batch_size, source_p
 
     testset = torch.utils.data.ConcatDataset(testsets)
     
-    print(f'length Testset: {trainset}')
+    print(f'length Testset: {len(testset)}')
 
     train_loader = torch.utils.data.DataLoader(trainset,  batch_size=batch_size, shuffle=True, num_workers=2)
     train_loader_msad = torch.utils.data.DataLoader(trainset_msad,  batch_size=batch_size, shuffle=True, num_workers=2)
@@ -304,6 +304,7 @@ def get_CIFAR10_test(normal_class_labels, path, backbone):
     testset = CIFAR10(root=path, train=False, download=True, transform=transform)
     test_mask = np.isin(testset.targets, normal_class_labels)
 
+    testset.taregts = np.array(testset.targets)
     testset.targets[test_mask] = 0
     testset.targets[~test_mask] = 1
 
@@ -368,6 +369,7 @@ def get_CIFAR100_test(normal_class_labels, path, backbone):
 
     test_mask = np.isin(testset.targets, normal_class_labels)
 
+    testset.taregts = np.array(testset.targets)
     testset.targets[test_mask] = 0
     testset.targets[~test_mask] = 1
 
@@ -407,6 +409,7 @@ def get_MNIST_test(normal_class_labels, path, backbone):
     testset = MNIST(root=path, train=False, download=True, transform=transform)
     test_mask = np.isin(testset.targets, normal_class_labels)
 
+    testset.taregts = np.array(testset.targets)
     testset.targets[test_mask] = 0
     testset.targets[~test_mask] = 1
 
@@ -448,6 +451,7 @@ def get_FASHION_MNIST_test(normal_class_labels, path, backbone):
 
     test_mask = np.isin(testset.targets, normal_class_labels)
 
+    testset.taregts = np.array(testset.targets)
     testset.targets[test_mask] = 0
     testset.targets[~test_mask] = 1
 
