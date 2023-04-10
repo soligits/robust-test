@@ -304,7 +304,7 @@ def get_CIFAR10_test(normal_class_labels, path, backbone):
     testset = CIFAR10(root=path, train=False, download=True, transform=transform)
     test_mask = np.isin(testset.targets, normal_class_labels)
 
-    testset.taregts = np.array(testset.targets)
+    testset.targets = np.array(testset.targets)
     testset.targets[test_mask] = 0
     testset.targets[~test_mask] = 1
 
@@ -369,7 +369,7 @@ def get_CIFAR100_test(normal_class_labels, path, backbone):
 
     test_mask = np.isin(testset.targets, normal_class_labels)
 
-    testset.taregts = np.array(testset.targets)
+    testset.targets = np.array(testset.targets)
     testset.targets[test_mask] = 0
     testset.targets[~test_mask] = 1
 
@@ -409,7 +409,7 @@ def get_MNIST_test(normal_class_labels, path, backbone):
     testset = MNIST(root=path, train=False, download=True, transform=transform)
     test_mask = np.isin(testset.targets, normal_class_labels)
 
-    testset.taregts = np.array(testset.targets)
+    testset.targets = np.array(testset.targets)
     testset.targets[test_mask] = 0
     testset.targets[~test_mask] = 1
 
@@ -451,7 +451,7 @@ def get_FASHION_MNIST_test(normal_class_labels, path, backbone):
 
     test_mask = np.isin(testset.targets, normal_class_labels)
 
-    testset.taregts = np.array(testset.targets)
+    testset.targets = np.array(testset.targets)
     testset.targets[test_mask] = 0
     testset.targets[~test_mask] = 1
 
