@@ -24,7 +24,7 @@ class PGD_KNN_ADVANCED(Attack):
         >>> attack = torchattacks.PGD(model, eps=8/255, alpha=1/255, steps=40, random_start=True)
         >>> adv_images = attack(images, labels)
     """
-    def __init__(self, model, train_embeddings, k= 2, eps=0.3,
+    def __init__(self, model, train_embeddings, k = 2, eps=0.3,
                  alpha=2/255, steps=40, random_start=True):
         super().__init__("PGD", model)
         self.eps = eps

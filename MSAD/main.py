@@ -134,7 +134,7 @@ def get_adv_score(model, device, train_loader, test_loader, attack_type, eps):
     test_attack = None
     if attack_type.startswith('PGDA'):
         steps = int(attack_type.split('-')[1])
-        test_attack = KnnAdvancedPGD.PGD_KNN_ADVANCED(model, train_feature_space, eps=eps, steps=steps, alpha = (2.5 * eps) / steps)
+        test_attack = KnnAdvancedPGD.PGD_KNN_ADVANCED(model, train_feature_space, eps=eps, steps=steps, alpha = (2.5 * eps) / steps, k=2)
     elif attack_type.startswith('PGD'):
         steps = int(attack_type.split('-')[1])
         test_attack = KnnPGD.PGD_KNN(model, mean_train.to(device), eps=eps, steps=steps, alpha = (2.5 * eps) / steps)
