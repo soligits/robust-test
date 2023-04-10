@@ -493,6 +493,7 @@ def get_SVHN_test(normal_class_labels, path, backbone):
     testset = SVHN(root=path, split='test', download=True, transform=transform)
     test_mask = np.isin(testset.labels, normal_class_labels)
 
+    testset.labels = np.array(testset.labels)
     testset.labels[test_mask] = 0
     testset.labels[~test_mask] = 1
 
