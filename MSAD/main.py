@@ -187,25 +187,35 @@ def get_adv_score(model, device, train_loader, test_loader, attack_type, eps):
     return adv_auc, adv_auc_in, adv_auc_out, train_feature_space
 
 def main(args):
-    log('Dataset: {}, Normal Label: {}, LR: {}'.format(args.dataset, args.label, args.lr))
+    log('Dataset: {}, Normal Label: {}, LR: {}'.format(args.source_dataset, args.label, args.lr))
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     log(device)
     model = utils.Model(str(args.backbone), args.model_path)
     model = model.to(device)
 
-    train_loader, test_loader, train_loader_1 = utils.get_loaders(dataset=args.dataset, label_class=args.label, batch_size=args.batch_size, backbone=args.backbone, path=args.dataset_path)
+    train_loader, test_loader, train_loader_1 = utils.get_loaders(source_dataset=args.source_dataset,
+                                                                  target_datset=args.target_dataset,
+                                                                  label_class=args.label,
+                                                                  batch_size=args.batch_size,
+                                                                  backbone=args.backbone,
+                                                                  source_path=args.source_dataset_path,
+                                                                  target_path=args.target_dataset_path,
+                                                                  test_type=args.test_type)
     train_model(model, train_loader, test_loader, train_loader_1, device, args)
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='')
-    parser.add_argument('--dataset', default='cifar10')
-    parser.add_argument('--dataset_path', default='~/cifar10', type=str)
-    parser.add_argument('--model_path', default='./pretrained_models/resnet50.ckpt', type=str)
+    parser.add_argument('--source_dataset', default='cifar10')
+    parser.add_argument('--source_dataset_path', default='~/cifar10', type=str)
+    parser.add_argument('--target_dataset')
+    parser.add_argument('--target_dataset_path', default='~/cifar100', type=str)
+    parser.add_argument('--model_path', default='./pretrained_models/', type=str)
     parser.add_argument('--epochs', default=20, type=int, metavar='epochs', help='number of epochs')
-    parser.add_argument('--label', default=0, type=int, help='The normal class')
+    parser.add_argument('--label', type=int, help='The normal class')
     parser.add_argument('--lr', type=float, default=1e-5, help='The initial learning rate.')
     parser.add_argument('--eps', type=str, default='2/255', help='The esp for attack.')
+    parser.add_argument('--test_type', type=str, default='ad', choices=['ad', 'osr', 'ood'], help='the type of test')
     parser.add_argument('--batch_size', default=128, type=int)
     parser.add_argument('--backbone',
                     choices=['resnet18_linf_eps0.5', 'resnet18_linf_eps1.0', 'resnet18_linf_eps2.0', 'resnet18_linf_eps4.0', 'resnet18_linf_eps8.0',
@@ -219,12 +229,33 @@ if __name__ == "__main__":
     parser.add_argument('--test_attacks', help='Desired Attacks for adversarial test', nargs='+')
     parser.add_argument('--angular', action='store_true', help='Train with angular center loss')
     args = parser.parse_args()
+    
+    if args.test_type == 'ood':
+        assert args.label is None
+        assert args.target_dataset is not None
+    elif args.test_type =='osr':
+        assert args.label is None
+        assert args.target_dataset is None
+    else:
+        assert args.label is not None
+        assert args.target_dataset is None
 
     if not os.path.exists('./Results/'):
         os.makedirs('./Results/')
+    
+    # Set the file name
+    file_name = f"MSAD-{args.source_dataset}-{args.label}-epochs{args.epochs}-ResNet{args.backbone}-eps-{eval(args.eps)}-type-{args.test_type}.txt"
+    file_path = f"./Results/{file_name}"
 
-    Logger = open(f"./Results/MSAD-{args.dataset}-{args.label}-epochs{args.epochs}-ResNet{args.backbone}-eps{eval(args.eps)}.txt", "a", encoding='utf-8')
+    # Check if the file already exists
+    if os.path.exists(file_path):
+        # If it does, find a new file name by appending a number to the end
+        i = 1
+        while os.path.exists(f"./Results/{file_name[:-4]}_{i}.txt"):
+            i += 1
+        file_name = f"{file_name[:-4]}_{i}.txt"
+
+    # Open the file for appending
+    Logger = open(f"./Results/{file_name}", "a", encoding='utf-8')
 
     main(args)
-
-
