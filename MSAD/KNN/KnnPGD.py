@@ -26,7 +26,7 @@ class PGD_KNN(Attack):
                  alpha=2/255, steps=40, random_start=True):
         super().__init__("PGD", model)
         self.eps = eps
-        self.alpha = eps / steps
+        self.alpha = alpha
         self.steps = steps
         self.random_start = random_start
         self._supported_mode = ['default', 'targeted']

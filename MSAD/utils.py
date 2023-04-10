@@ -524,7 +524,7 @@ def get_BrainMRI(batch_size, path, backbone):
     testset = BrainMRI(transform_mri, train=False )
     test_loader = torch.utils.data.DataLoader(testset, shuffle=False, batch_size=batch_size)
 
-    trainset_msad = BrainMRI(transform_aug_mri, train=True )
-    train_loader_msad = torch.utils.data.DataLoader(trainset, shuffle=True, batch_size=batch_size)
+    trainset_msad = BrainMRI(Transform(), train=True )
+    train_loader_msad = torch.utils.data.DataLoader(trainset_msad, shuffle=True, batch_size=batch_size)
 
     return train_loader, test_loader, train_loader_msad

@@ -28,8 +28,8 @@ class PGD_KNN_ADVANCED(Attack):
                  alpha=2/255, steps=40, random_start=True):
         super().__init__("PGD", model)
         self.eps = eps
-        self.alpha = eps / steps
         self.steps = steps
+        self.alpha = alpha
         self.random_start = random_start
         self._supported_mode = ['default', 'targeted']
         self.train_embeddings = train_embeddings
@@ -74,7 +74,7 @@ class PGD_KNN_ADVANCED(Attack):
               outputs = self.model(adv_images)
           
               adv_images_np = outputs.cpu().detach().numpy().reshape(outputs.shape[0], -1)
-              _, indices = index.search(adv_images_np.astype(np.float32), 5)
+              _, indices = index.search(adv_images_np.astype(np.float32), self.k)
 
               # Compute the distance to the K-nearest neighbors
               knn_distances_list = [torch.norm(outputs[i] - torch.tensor(self.train_embeddings[indices[i]], device=self.device), dim=1, keepdim=True) for i in range(outputs.shape[0])]
