@@ -240,22 +240,22 @@ if __name__ == "__main__":
         assert args.label is not None
         assert args.target_dataset is None
 
-    if not os.path.exists('./Results/'):
-        os.makedirs('./Results/')
-    
+
+    os.makedirs('./Results/{args.test_type}/', exist_ok=True)
+
     # Set the file name
-    file_name = f"MSAD-{args.source_dataset}-{args.label}-epochs{args.epochs}-ResNet{args.backbone}-eps-{eval(args.eps)}-type-{args.test_type}.txt"
-    file_path = f"./Results/{file_name}"
+    file_name = f"MSAD-{args.source_dataset}-{args.label}-epochs{args.epochs}-ResNet{args.backbone}-eps-{eval(args.eps)}-{args.test_type}.txt"
+    file_path = f"./Results/{args.test_type}/{file_name}"
 
     # Check if the file already exists
     if os.path.exists(file_path):
         # If it does, find a new file name by appending a number to the end
         i = 1
-        while os.path.exists(f"./Results/{file_name[:-4]}_{i}.txt"):
+        while os.path.exists(f"./Results/{args.test_type}/{file_name[:-4]}_{i}.txt"):
             i += 1
         file_name = f"{file_name[:-4]}_{i}.txt"
 
     # Open the file for appending
-    Logger = open(f"./Results/{file_name}", "a", encoding='utf-8')
+    Logger = open(f"./Results/{args.test_type}/{file_name}", "a", encoding='utf-8')
 
     main(args)
