@@ -19,7 +19,6 @@ from torchvision import models
 from robustness.datasets import ImageNet
 import requests
 import subprocess
-from main import log
 
 class GaussianBlur(object):
     """Gaussian blur augmentation in SimCLR https://arxiv.org/abs/2002.05709"""
@@ -151,20 +150,20 @@ def resume_finetuning_from_checkpoint(finetuned_model_path, arch):
     '''Given arguments, dataset object and a finetuned model_path, returns a model
     with loaded weights and returns the checkpoint necessary for resuming training.
     '''
-    log('[Resuming finetuning from a checkpoint...]')
+    print('[Resuming finetuning from a checkpoint...]')
     model, checkpoint = model_utils.make_and_restore_model(arch=arch, dataset=ImageNet('/imagenet/'), resume_path=finetuned_model_path)
     return model, checkpoint
 
 
 def download_and_load_backnone(url, model_name, path):
     arch = '_'.join(model_name.split('_')[:-2])
-    log(f'{arch}, {model_name}')
+    print(f'{arch}, {model_name}')
     os.makedirs(path, exist_ok=True)
     ckpt_path = os.path.join(path, f'{model_name}.ckpt')
     
     # Check if checkpoint file already exists
     if os.path.exists(ckpt_path):
-        log(f'{model_name} checkpoint file already exists.')
+        print(f'{model_name} checkpoint file already exists.')
         return ckpt_path
 
     r = requests.get(url, allow_redirects=True)  # to get content after redirection
@@ -203,7 +202,7 @@ def get_loaders(source_dataset, target_datset, label_class, batch_size, source_p
 
     trainset, trainset_msad, normal_labels  = get_train_dataset(source_dataset, test_type, label_class, source_path, backbone)
 
-    log(f'Train Dataset: {source_dataset}, Normal Classes: {normal_labels}, length Trainset: {len(trainset)}')
+    print(f'Train Dataset: {source_dataset}, Normal Classes: {normal_labels}, length Trainset: {len(trainset)}')
 
     testsets = []
 
@@ -215,7 +214,7 @@ def get_loaders(source_dataset, target_datset, label_class, batch_size, source_p
 
     testset = torch.utils.data.ConcatDataset(testsets)
     
-    log(f'length Testset: {len(testset)}')
+    print(f'length Testset: {len(testset)}')
 
     train_loader = torch.utils.data.DataLoader(trainset,  batch_size=batch_size, shuffle=True, num_workers=2)
     train_loader_msad = torch.utils.data.DataLoader(trainset_msad,  batch_size=batch_size, shuffle=True, num_workers=2)
