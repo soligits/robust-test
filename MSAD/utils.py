@@ -158,7 +158,7 @@ def resume_finetuning_from_checkpoint(finetuned_model_path, arch):
 
 def download_and_load_backnone(url, model_name, path):
     arch = '_'.join(model_name.split('_')[:-2])
-    log(arch, model_name)
+    log(f'{arch}, {model_name}')
     os.makedirs(path, exist_ok=True)
     ckpt_path = os.path.join(path, f'{model_name}.ckpt')
     
