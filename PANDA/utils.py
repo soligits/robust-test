@@ -6,19 +6,36 @@ import faiss
 import ResNet
 from dataset import get_dataloader
 
-mvtype = ['bottle', 'cable', 'capsule', 'carpet', 'grid', 'hazelnut', 'leather',
-          'metal_nut', 'pill', 'screw', 'tile', 'toothbrush', 'transistor',
-          'wood', 'zipper']
+mvtype = [
+    "bottle",
+    "cable",
+    "capsule",
+    "carpet",
+    "grid",
+    "hazelnut",
+    "leather",
+    "metal_nut",
+    "pill",
+    "screw",
+    "tile",
+    "toothbrush",
+    "transistor",
+    "wood",
+    "zipper",
+]
 
-transform_color = transforms.Compose([transforms.Resize(256),
-                                      transforms.CenterCrop(224),
-                                      transforms.ToTensor()])
+transform_color = transforms.Compose(
+    [transforms.Resize(256), transforms.CenterCrop(224), transforms.ToTensor()]
+)
 
-transform_gray = transforms.Compose([
-                                 transforms.Resize(256),
-                                 transforms.CenterCrop(224),
-                                 transforms.Grayscale(num_output_channels=3),
-                                 transforms.ToTensor()])    
+transform_gray = transforms.Compose(
+    [
+        transforms.Resize(256),
+        transforms.CenterCrop(224),
+        transforms.Grayscale(num_output_channels=3),
+        transforms.ToTensor(),
+    ]
+)
 
 
 def get_resnet_model(resnet_type=152):
@@ -33,7 +50,7 @@ def get_resnet_model(resnet_type=152):
         return ResNet.wide_resnet50_2(pretrained=True, progress=True)
     elif resnet_type == 101:
         return ResNet.resnet101(pretrained=True, progress=True)
-    else:  #152
+    else:  # 152
         return ResNet.resnet152(pretrained=True, progress=True)
 
 
@@ -41,6 +58,7 @@ def freeze_model(model):
     for param in model.parameters():
         param.requires_grad = False
     return
+
 
 def freeze_parameters(model, train_fc=False):
     for p in model.conv1.parameters():
@@ -55,6 +73,12 @@ def freeze_parameters(model, train_fc=False):
         for p in model.fc.parameters():
             p.requires_grad = False
 
+
+def unfreeze_parameters(model):
+    for p in model.parameters():
+        p.requires_grad = False
+
+
 def knn_score(train_set, test_set, n_neighbours=2):
     """
     Calculates the KNN distance
@@ -64,25 +88,58 @@ def knn_score(train_set, test_set, n_neighbours=2):
     D, _ = index.search(test_set, n_neighbours)
     return np.sum(D, axis=1)
 
-def get_outliers_loader(batch_size):
-    dataset = torchvision.datasets.ImageFolder(root='./data/tiny', transform=transform_color)
-    outlier_loader = torch.utils.data.DataLoader(dataset, batch_size=batch_size, shuffle=True, num_workers=0)
+
+class GaussianNoiseDataset(torch.utils.data.Dataset):
+    def __init__(self, num_samples, img_shape):
+        self.num_samples = num_samples
+        self.img_shape = img_shape
+
+    def __len__(self):
+        return self.num_samples
+
+    def __getitem__(self, idx):
+        noise = torch.randn(self.img_shape)
+        return noise, 1
+
+
+def get_outliers_loader(batch_size, dataset_name="tiny"):
+    if dataset_name == "MNIST":
+        dataset = torchvision.datasets.MNIST(
+            root="./data/MNIST", train=True, transform=transform_gray, download=True
+        )
+    elif dataset_name == "SVHN":
+        dataset = torchvision.datasets.SVHN(
+            root="./data/SVHN", split="train", transform=transform_color, download=True
+        )
+    elif dataset_name == "tiny":
+        dataset = torchvision.datasets.ImageFolder(
+            root="./data/tiny", transform=transform_color
+        )
+    elif dataset_name == "gaussian_noise":
+        dataset = GaussianNoiseDataset(num_samples=5000, img_shape=(3, 224, 224))
+    else:
+        raise ValueError(f"Unsupported dataset_name: {dataset_name}")
+
+    outlier_loader = torch.utils.data.DataLoader(
+        dataset, batch_size=batch_size, shuffle=True, num_workers=0
+    )
+
     return outlier_loader
 
+
 def get_loaders(dataset, path, label_class, batch_size):
-    if dataset in ['cifar10', 'cifar100', 'fashion', 'mnist', 'mvtec', 'svhn']:
+    if dataset in ["cifar10", "cifar100", "fashion", "mnist", "mvtec", "svhn"]:
         return get_dataloader(dataset, path, label_class, batch_size)
     else:
-        print('Unsupported Dataset')
+        print("Unsupported Dataset")
         exit()
 
+
 def clip_gradient(optimizer, grad_clip):
-    assert grad_clip>0, 'gradient clip value must be greater than 1'
+    assert grad_clip > 0, "gradient clip value must be greater than 1"
     for group in optimizer.param_groups:
-        for param in group['params']:
+        for param in group["params"]:
             # gradient
             if param.grad is None:
                 continue
             param.grad.data.clamp_(-grad_clip, grad_clip)
-
-
