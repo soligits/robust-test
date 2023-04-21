@@ -153,10 +153,6 @@ def main(args):
 
     clean_auc = get_score(model, test_loader=test_loader, device=device)
     print(clean_auc)
-    utils.unfreeze_parameters(model)
-    test_attack = torchattacks.PGD(model, steps=10, eps=8 / 255, alpha=2 / 255)
-    adv_auc = get_score_adversarial(model, test_loader, test_attack, device)
-    print(adv_auc)
 
     # Create the directory if it doesn't exist
     results_folder = f"./results-exposure/"
@@ -166,7 +162,6 @@ def main(args):
     results_filename = f"{results_folder}/{args.dataset}-ResNet{args.resnet_type}-OE-{args.outlier}-label-{args.label}.txt"
     with open(results_filename, "w") as results_file:
         results_file.write(f"clean_auc: {clean_auc}\n")
-        results_file.write(f"adv_auc: {adv_auc}\n")
 
 
 if __name__ == "__main__":
