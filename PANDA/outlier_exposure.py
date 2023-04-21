@@ -146,7 +146,7 @@ def main(args):
         batch_size=args.batch_size,
         path="./",
     )
-    outliers_loader = utils.get_outliers_loader(args.batch_size)
+    outliers_loader = utils.get_outliers_loader(args.batch_size, args.outlier)
 
     train_model(
         model, train_loader, outliers_loader, test_loader, device, args.epochs, args.lr
