@@ -7,6 +7,7 @@ import utils
 import torchattacks
 import torch
 from tqdm import tqdm
+import os
 
 
 def train_model(model, train_loader, outliers_loader, test_loader, device, epochs, lr):
@@ -18,8 +19,6 @@ def train_model(model, train_loader, outliers_loader, test_loader, device, epoch
             model, train_loader, outliers_loader, optimizer, ce, device
         )
         print("Epoch: {}, Loss: {}".format(epoch + 1, running_loss))
-        auc = get_score(model, test_loader, device)
-        print("Epoch: {}, AUROC is: {}".format(epoch + 1, auc))
 
 
 def run_epoch(model, train_loader, outliers_loader, optimizer, ce, device):
@@ -152,10 +151,22 @@ def main(args):
         model, train_loader, outliers_loader, test_loader, device, args.epochs, args.lr
     )
 
-    print(get_score(model, test_loader=test_loader, device=device))
+    clean_auc = get_score(model, test_loader=test_loader, device=device)
+    print(clean_auc)
     utils.unfreeze_parameters(model)
     test_attack = torchattacks.PGD(model, steps=10, eps=8 / 255, alpha=2 / 255)
-    print(get_score_adversarial(model, test_loader, test_attack, device))
+    adv_auc = get_score_adversarial(model, test_loader, test_attack, device)
+    print(adv_auc)
+
+    # Create the directory if it doesn't exist
+    results_folder = f"./results-exposure/"
+    os.makedirs(results_folder, exist_ok=True)
+
+    # Save the results to the specified file
+    results_filename = f"{results_folder}/{args.dataset}-ResNet{args.resnet_type}-OE-{args.outlier}-label-{args.label}.txt"
+    with open(results_filename, "w") as results_file:
+        results_file.write(f"clean_auc: {clean_auc}\n")
+        results_file.write(f"adv_auc: {adv_auc}\n")
 
 
 if __name__ == "__main__":
