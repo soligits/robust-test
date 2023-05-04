@@ -24,15 +24,13 @@ from torch.utils.data import Dataset, DataLoader
 from torchvision import transforms
 from torchvision.datasets import CIFAR10, CIFAR100, FashionMNIST, ImageFolder
 from torchvision.transforms import Compose
+from KNN import KnnAdvancedPGD
 
 
 class DiorDataset(Dataset):
     """Face Landmarks dataset."""
 
-    def __init__(self,
-                 image_path,
-                 labels_dict_path,
-                 transform=None):
+    def __init__(self, image_path, labels_dict_path, transform=None):
         """
         Args:
             image_path (string): Path to the images.
@@ -42,10 +40,10 @@ class DiorDataset(Dataset):
         self.labels_dict_path = labels_dict_path
         self.transform = transform
 
-        with open(self.labels_dict_path, 'rb') as handle:
+        with open(self.labels_dict_path, "rb") as handle:
             self.labels_dict = pickle.load(handle)
         self.images = [f for f in listdir(image_path) if isfile(join(image_path, f))]
-        self.targets = [self.labels_dict[img]['label_index'] for img in self.images]
+        self.targets = [self.labels_dict[img]["label_index"] for img in self.images]
 
     def __len__(self):
         return len(self.images)
@@ -75,7 +73,21 @@ def get_features(model, data_loader, early_break=-1):
         if early_break > 0 and early_break < i:
             break
 
-        encoded_outputs = model(data.to('cuda'))
+        encoded_outputs = model(data.to("cuda"))
+        pretrained_features.append(encoded_outputs.detach().cpu().numpy())
+
+    pretrained_features = np.concatenate(pretrained_features)
+    return pretrained_features
+
+
+def get_features_adversarial(model, data_loader, attack, early_break=-1):
+    pretrained_features = []
+    for i, (data, labels) in enumerate(tqdm(data_loader)):
+        if early_break > 0 and early_break < i:
+            break
+
+        adv_data = attack(data.to("cuda"), labels.to("cuda"))
+        encoded_outputs = model(adv_data)
         pretrained_features.append(encoded_outputs.detach().cpu().numpy())
 
     pretrained_features = np.concatenate(pretrained_features)
@@ -96,17 +108,21 @@ class Identity(nn.Module):
         return x
 
 
-def extract_fetures(base_path,
-                    data_path,
-                    datasets,
-                    model,
-                    logging,
-                    calculate_features=False,
-                    manual_class_num_range=None,
-                    unimodal_vals=None,
-                    output_train_features=True,
-                    output_test_features=True,
-                    use_imagenet=False):
+def extract_fetures(
+    base_path,
+    data_path,
+    datasets,
+    model,
+    logging,
+    calculate_features=False,
+    manual_class_num_range=None,
+    unimodal_vals=None,
+    output_train_features=True,
+    output_test_features=True,
+    use_imagenet=False,
+    attack_steps=10,
+    attack_eps=2 / 255,
+):
     if unimodal_vals is None:
         unimodal_vals = [True, False]
 
@@ -128,83 +144,106 @@ def extract_fetures(base_path,
             _classes = range(number_of_classes)
 
         for _class in _classes:
-
             # config
             for unimodal in unimodal_vals:
-
-                print_and_add_to_log("=================================================",
-                                     logging)
+                print_and_add_to_log(
+                    "=================================================", logging
+                )
                 print_and_add_to_log(f"Experiment number: {exp_num}", logging)
                 print_and_add_to_log(f"Dataset: {dataset}", logging)
                 print_and_add_to_log(f"Class: {_class}", logging)
                 print_and_add_to_log(f"Unimodal setting: {unimodal}", logging)
 
-                assert dataset in ['cifar10', 'cifar100', 'fmnist', 'cats_vs_dogs',
-                                   'dior'], f"{dataset} not supported yet!"
+                assert dataset in [
+                    "cifar10",
+                    "cifar100",
+                    "fmnist",
+                    "cats_vs_dogs",
+                    "dior",
+                ], f"{dataset} not supported yet!"
                 if unimodal:
-                    base_feature_path = join(base_path, f'unimodal/{dataset}/class_{str(_class)}')
+                    base_feature_path = join(
+                        base_path, f"unimodal/{dataset}/class_{str(_class)}"
+                    )
                 else:
-                    base_feature_path = join(base_path, f'multimodal/{dataset}/class_{str(_class)}')
+                    base_feature_path = join(
+                        base_path, f"multimodal/{dataset}/class_{str(_class)}"
+                    )
 
                 if not os.path.exists((base_feature_path)):
-                    os.makedirs(base_feature_path, )
+                    os.makedirs(
+                        base_feature_path,
+                    )
                 else:
-                    print_and_add_to_log(f"Experiment of class {_class} already exists", logging)
+                    print_and_add_to_log(
+                        f"Experiment of class {_class} already exists", logging
+                    )
 
                 if unimodal:
-                    anomaly_classes = [i for i in range(number_of_classes) if i != _class]
+                    anomaly_classes = [
+                        i for i in range(number_of_classes) if i != _class
+                    ]
                 else:
                     anomaly_classes = [_class]
 
-                if dataset == 'fmnist':
+                if dataset == "fmnist":
                     if use_imagenet:
                         val_transforms = Compose(
                             [
                                 transforms.Resize((384, 384)),
                                 transforms.Grayscale(num_output_channels=3),
-                                transforms.ToTensor()                            ]
+                                transforms.ToTensor(),
+                            ]
                         )
                     else:
                         val_transforms = Compose(
                             [
                                 transforms.Resize((224, 224)),
                                 transforms.Grayscale(num_output_channels=3),
-                                transforms.ToTensor()                            ]
+                                transforms.ToTensor(),
+                            ]
                         )
                 else:
                     if use_imagenet:
                         val_transforms = Compose(
-                            [
-                                transforms.Resize((384, 384)),
-                                transforms.ToTensor()                            ]
+                            [transforms.Resize((384, 384)), transforms.ToTensor()]
                         )
                     else:
                         val_transforms = Compose(
-                            [
-                                transforms.Resize((224, 224)),
-                                transforms.ToTensor()                            ]
+                            [transforms.Resize((224, 224)), transforms.ToTensor()]
                         )
 
                 model.eval()
                 freeze_pretrained_model(model)
-                model.to('cuda')
+                model.to("cuda")
 
                 # get dataset
-                trainset_origin, testset = get_datasets(dataset, data_path, val_transforms)
-                indices = [i for i, val in enumerate(trainset_origin.targets)
-                           if val not in anomaly_classes]
+                trainset_origin, testset = get_datasets(
+                    dataset, data_path, val_transforms
+                )
+                indices = [
+                    i
+                    for i, val in enumerate(trainset_origin.targets)
+                    if val not in anomaly_classes
+                ]
                 trainset = torch.utils.data.Subset(trainset_origin, indices)
 
                 print_and_add_to_log(f"Train dataset len: {len(trainset)}", logging)
                 print_and_add_to_log(f"Test dataset len: {len(testset)}", logging)
 
                 # Create datasetLoaders from trainset and testset
-                trainsetLoader = DataLoader(trainset, batch_size=BATCH_SIZE, shuffle=False)
-                testsetLoader = DataLoader(testset, batch_size=BATCH_SIZE, shuffle=False)
+                trainsetLoader = DataLoader(
+                    trainset, batch_size=BATCH_SIZE, shuffle=False
+                )
+                testsetLoader = DataLoader(
+                    testset, batch_size=BATCH_SIZE, shuffle=False
+                )
 
-                anomaly_targets = [1 if i in anomaly_classes else 0 for i in testset.targets]
+                anomaly_targets = [
+                    1 if i in anomaly_classes else 0 for i in testset.targets
+                ]
 
-                extracted_features_path = join(base_feature_path, 'extracted_features')
+                extracted_features_path = join(base_feature_path, "extracted_features")
                 if not os.path.exists(extracted_features_path):
                     os.makedirs(extracted_features_path)
 
@@ -213,42 +252,107 @@ def extract_fetures(base_path,
                     os.mkdir(extracted_features_path)
 
                 if calculate_features or not os.path.exists(
-                        join(extracted_features_path, 'train_pretrained_ViT_features.npy')):
+                    join(extracted_features_path, "train_pretrained_ViT_features.npy")
+                ):
+                    train_features = get_features(
+                        model=model, data_loader=trainsetLoader
+                    )
                     if output_train_features:
-                        train_features = get_features(model=model, data_loader=trainsetLoader)
-                        with open(join(extracted_features_path,
-                                       'train_pretrained_ViT_features.npy'), 'wb') as f:
+                        with open(
+                            join(
+                                extracted_features_path,
+                                "train_pretrained_ViT_features.npy",
+                            ),
+                            "wb",
+                        ) as f:
                             np.save(f, train_features)
 
                     if output_test_features:
-                        test_features = get_features(model=model, data_loader=testsetLoader)
-                        with open(join(extracted_features_path,
-                                       'test_pretrained_ViT_features.npy'), 'wb') as f:
+                        test_features = get_features(
+                            model=model, data_loader=testsetLoader
+                        )
+                        with open(
+                            join(
+                                extracted_features_path,
+                                "test_pretrained_ViT_features.npy",
+                            ),
+                            "wb",
+                        ) as f:
                             np.save(f, test_features)
+
+                        test_adv_features = get_features_adversarial(
+                            model=model,
+                            data_loader=testsetLoader,
+                            attack=KnnAdvancedPGD.PGD_KNN_ADVANCED(
+                                model=model,
+                                train_embeddings=train_features,
+                                k=2,
+                                eps=attack_eps,
+                                steps=attack_steps,
+                                alpha=2.5 * attack_eps / attack_steps,
+                            ),
+                        )
+
+                        with open(
+                            join(
+                                extracted_features_path,
+                                "test_adv_pretrained_ViT_features.npy",
+                            ),
+                            "wb",
+                        ) as f:
+                            np.save(f, test_adv_features)
 
                 else:
                     if output_train_features:
-                        print_and_add_to_log(f"loading feature from {extracted_features_path}",
-                                             logging)
-                        with open(join(extracted_features_path,
-                                       'train_pretrained_ViT_features.npy'), 'rb') as f:
+                        print_and_add_to_log(
+                            f"loading feature from {extracted_features_path}", logging
+                        )
+                        with open(
+                            join(
+                                extracted_features_path,
+                                "train_pretrained_ViT_features.npy",
+                            ),
+                            "rb",
+                        ) as f:
                             train_features = np.load(f)
                     if output_test_features:
-                        with open(join(extracted_features_path,
-                                       f'test_pretrained_ViT_features.npy'), 'rb') as f:
+                        with open(
+                            join(
+                                extracted_features_path,
+                                f"test_pretrained_ViT_features.npy",
+                            ),
+                            "rb",
+                        ) as f:
                             test_features = np.load(f)
+
+                        with open(
+                            join(
+                                extracted_features_path,
+                                f"test_adv_pretrained_ViT_features.npy",
+                            ),
+                            "rb",
+                        ) as f:
+                            test_adv_features = np.load(f)
 
                 if output_train_features and output_test_features:
                     print_and_add_to_log("Calculate KNN score", logging)
                     distances = knn_score(train_features, test_features, n_neighbours=2)
                     auc = roc_auc_score(anomaly_targets, distances)
                     print_and_add_to_log(auc, logging)
+                    print_and_add_to_log("Calculate KNN score", logging)
+                    adv_distances = knn_score(
+                        train_features, test_adv_features, n_neighbours=2
+                    )
+                    adv_auc = roc_auc_score(anomaly_targets, adv_distances)
+                    print_and_add_to_log(adv_auc, logging)
 
 
 def freeze_finetuned_model(model):
     non_freezed_layer = []
     for name, param in model.named_parameters():
-        if not (name.startswith('transformer.cloned_block') or name.startswith('cloned_')):
+        if not (
+            name.startswith("transformer.cloned_block") or name.startswith("cloned_")
+        ):
             param.requires_grad = False
         else:
             non_freezed_layer.append(name)
@@ -265,16 +369,110 @@ def sparse2coarse(targets):
         trainset = torchvision.datasets.CIFAR100(path)
         trainset.targets = sparse2coarse(trainset.targets)
     """
-    coarse_labels = np.array([4, 1, 14, 8, 0, 6, 7, 7, 18, 3,
-                              3, 14, 9, 18, 7, 11, 3, 9, 7, 11,
-                              6, 11, 5, 10, 7, 6, 13, 15, 3, 15,
-                              0, 11, 1, 10, 12, 14, 16, 9, 11, 5,
-                              5, 19, 8, 8, 15, 13, 14, 17, 18, 10,
-                              16, 4, 17, 4, 2, 0, 17, 4, 18, 17,
-                              10, 3, 2, 12, 12, 16, 12, 1, 9, 19,
-                              2, 10, 0, 1, 16, 12, 9, 13, 15, 13,
-                              16, 19, 2, 4, 6, 19, 5, 5, 8, 19,
-                              18, 1, 2, 15, 6, 0, 17, 8, 14, 13])
+    coarse_labels = np.array(
+        [
+            4,
+            1,
+            14,
+            8,
+            0,
+            6,
+            7,
+            7,
+            18,
+            3,
+            3,
+            14,
+            9,
+            18,
+            7,
+            11,
+            3,
+            9,
+            7,
+            11,
+            6,
+            11,
+            5,
+            10,
+            7,
+            6,
+            13,
+            15,
+            3,
+            15,
+            0,
+            11,
+            1,
+            10,
+            12,
+            14,
+            16,
+            9,
+            11,
+            5,
+            5,
+            19,
+            8,
+            8,
+            15,
+            13,
+            14,
+            17,
+            18,
+            10,
+            16,
+            4,
+            17,
+            4,
+            2,
+            0,
+            17,
+            4,
+            18,
+            17,
+            10,
+            3,
+            2,
+            12,
+            12,
+            16,
+            12,
+            1,
+            9,
+            19,
+            2,
+            10,
+            0,
+            1,
+            16,
+            12,
+            9,
+            13,
+            15,
+            13,
+            16,
+            19,
+            2,
+            4,
+            6,
+            19,
+            5,
+            5,
+            8,
+            19,
+            18,
+            1,
+            2,
+            15,
+            6,
+            0,
+            17,
+            8,
+            14,
+            13,
+        ]
+    )
     return coarse_labels[targets]
 
 
@@ -286,19 +484,19 @@ class Identity(nn.Module):
         return x
 
 
-def forward_one_epoch(loader,
-                      optimizer,
-                      criterion,
-                      net,
-                      mode,
-                      progress_bar_str,
-                      num_of_epochs,
-                      device='cuda'
-                      ):
+def forward_one_epoch(
+    loader,
+    optimizer,
+    criterion,
+    net,
+    mode,
+    progress_bar_str,
+    num_of_epochs,
+    device="cuda",
+):
     losses = []
 
     for batch_idx, (inputs, targets) in enumerate(tqdm(loader)):
-
         if mode == Mode.training:
             optimizer.zero_grad()
 
@@ -314,8 +512,11 @@ def forward_one_epoch(loader,
             optimizer.step()
 
         if batch_idx % 20 == 0:
-            progress_bar(batch_idx, len(loader), progress_bar_str
-                         % (num_of_epochs, np.mean(losses), losses[-1]))
+            progress_bar(
+                batch_idx,
+                len(loader),
+                progress_bar_str % (num_of_epochs, np.mean(losses), losses[-1]),
+            )
         del inputs, origin_block_outputs, cloned_block_outputs, loss
         torch.cuda.empty_cache()
 
@@ -324,10 +525,17 @@ def forward_one_epoch(loader,
     return losses
 
 
-def train(model, best_model, args, dataloaders,
-          model_checkpoint_path,
-          output_path, device='cuda',
-          seed=42, anomaly_classes=None):
+def train(
+    model,
+    best_model,
+    args,
+    dataloaders,
+    model_checkpoint_path,
+    output_path,
+    device="cuda",
+    seed=42,
+    anomaly_classes=None,
+):
     torch.manual_seed(0)
     if torch.cuda.is_available():
         torch.cuda.manual_seed_all(seed)
@@ -335,83 +543,92 @@ def train(model, best_model, args, dataloaders,
     model = model.to(device)
     best_model = best_model.to(device)
 
-    optimizer = torch.optim.Adam(model.parameters(), lr=args['lr'])
+    optimizer = torch.optim.Adam(model.parameters(), lr=args["lr"])
     criterion = nn.MSELoss()
 
     training_losses, val_losses = [], []
 
-    training_loader = dataloaders['training']
-    val_loader = dataloaders['val']
-    test_loader = dataloaders['test']
+    training_loader = dataloaders["training"]
+    val_loader = dataloaders["val"]
+    test_loader = dataloaders["test"]
 
     best_val_loss = np.inf
 
     # start training
-    for epoch in range(1, args['epochs'] + 1):
-
+    for epoch in range(1, args["epochs"] + 1):
         # training
         model = model.train()
-        progress_bar_str = 'Teain: repeat %d -- Mean Loss: %.3f | Last Loss: %.3f'
+        progress_bar_str = "Teain: repeat %d -- Mean Loss: %.3f | Last Loss: %.3f"
 
-        losses = forward_one_epoch(loader=training_loader,
-                                   optimizer=optimizer,
-                                   criterion=criterion,
-                                   net=model,
-                                   mode=Mode.training,
-                                   progress_bar_str=progress_bar_str,
-                                   num_of_epochs=epoch)
+        losses = forward_one_epoch(
+            loader=training_loader,
+            optimizer=optimizer,
+            criterion=criterion,
+            net=model,
+            mode=Mode.training,
+            progress_bar_str=progress_bar_str,
+            num_of_epochs=epoch,
+        )
 
         # save first batch loss for normalization
         train_epoch_loss = np.mean(losses)
         sys.stdout.flush()
         print()
-        print(f'Train epoch {epoch}: loss {train_epoch_loss}', flush=True)
+        print(f"Train epoch {epoch}: loss {train_epoch_loss}", flush=True)
         training_losses.append(train_epoch_loss)
 
         torch.cuda.empty_cache()
         torch.save(model.state_dict(), model_checkpoint_path)
 
         if epoch == 1 or epoch == 5:
-            init_model_checkpoint_path = join(output_path,
-                                              f'{epoch}_full_recon_model_state_dict.pkl')
+            init_model_checkpoint_path = join(
+                output_path, f"{epoch}_full_recon_model_state_dict.pkl"
+            )
             torch.save(model.state_dict(), init_model_checkpoint_path)
 
         del losses
         gc.collect()
 
-        if (epoch - 1) % args['eval_every'] == 0:
+        if (epoch - 1) % args["eval_every"] == 0:
             # validation
             model.eval()
-            progress_bar_str = 'Validation: repeat %d -- Mean Loss: %.3f | Last Loss: %.3f'
+            progress_bar_str = (
+                "Validation: repeat %d -- Mean Loss: %.3f | Last Loss: %.3f"
+            )
 
-            losses = forward_one_epoch(loader=val_loader,
-                                       optimizer=optimizer,
-                                       criterion=criterion,
-                                       net=model,
-                                       mode=Mode.validation,
-                                       progress_bar_str=progress_bar_str,
-                                       num_of_epochs=epoch
-                                             )
+            losses = forward_one_epoch(
+                loader=val_loader,
+                optimizer=optimizer,
+                criterion=criterion,
+                net=model,
+                mode=Mode.validation,
+                progress_bar_str=progress_bar_str,
+                num_of_epochs=epoch,
+            )
 
             val_epoch_loss = np.mean(losses)
             sys.stdout.flush()
 
             print()
-            print(f'Validation epoch {epoch // args["eval_every"]}: loss {val_epoch_loss}',
-                  flush=True)
+            print(
+                f'Validation epoch {epoch // args["eval_every"]}: loss {val_epoch_loss}',
+                flush=True,
+            )
             val_losses.append(val_epoch_loss)
 
             #
             cur_acc_loss = {
-                'training_losses': training_losses,
-                'val_losses': val_losses
+                "training_losses": training_losses,
+                "val_losses": val_losses,
             }
 
             if best_val_loss - 0.001 > val_epoch_loss:
                 best_val_loss = val_epoch_loss
                 best_acc_epoch = epoch
 
-                print(f'========== new best model! epoch {best_acc_epoch}, loss {best_val_loss}  ==========')
+                print(
+                    f"========== new best model! epoch {best_acc_epoch}, loss {best_val_loss}  =========="
+                )
 
                 best_model.load_state_dict(model.state_dict())
                 # best_model = copy.deepcopy(model)
@@ -422,19 +639,21 @@ def train(model, best_model, args, dataloaders,
             del losses
             gc.collect()
 
-            progress_bar_str = 'Test: repeat %d -- Mean Loss: %.3f | Last Loss: %.3f'
+            progress_bar_str = "Test: repeat %d -- Mean Loss: %.3f | Last Loss: %.3f"
             model.eval()
-            test_losses = forward_one_epoch(loader=test_loader,
-                                            optimizer=None,
-                                            criterion=criterion,
-                                            net=model,
-                                            mode=Mode.test,
-                                            progress_bar_str=progress_bar_str,
-                                            num_of_epochs=0)
+            test_losses = forward_one_epoch(
+                loader=test_loader,
+                optimizer=None,
+                criterion=criterion,
+                net=model,
+                mode=Mode.test,
+                progress_bar_str=progress_bar_str,
+                num_of_epochs=0,
+            )
 
             test_epoch_loss = np.mean(test_losses)
             print("===================== OOD val Results =====================")
-            print(f'OOD val Loss : {test_epoch_loss}')
+            print(f"OOD val Loss : {test_epoch_loss}")
             del test_losses
             gc.collect()
             # if no_imporvement_epochs > args['early_stopping_n_epochs']:
@@ -442,78 +661,80 @@ def train(model, best_model, args, dataloaders,
             #     print(f"epoch number {epoch}")
             #     break
 
-            if args['plot_every_layer_summarization']:
-                _, testset = get_datasets_for_ViT(dataset=args['dataset'],
-                                                  data_path = args['data_path'],
-                                                  one_vs_rest=args['unimodal'],
-                                                  _class=args['_class'],
-                                                  normal_test_sample_only=False,
-                                                  use_imagenet=args['use_imagenet']
-                                                  )
+            if args["plot_every_layer_summarization"]:
+                _, testset = get_datasets_for_ViT(
+                    dataset=args["dataset"],
+                    data_path=args["data_path"],
+                    one_vs_rest=args["unimodal"],
+                    _class=args["_class"],
+                    normal_test_sample_only=False,
+                    use_imagenet=args["use_imagenet"],
+                )
 
-                eval_test_loader = torch.utils.data.DataLoader(testset,
-                                                               batch_size=args['batch_size'],
-                                                               shuffle=False)
-                anomaly_targets = [0 if i in anomaly_classes else 1 for i in testset.targets]
+                eval_test_loader = torch.utils.data.DataLoader(
+                    testset, batch_size=args["batch_size"], shuffle=False
+                )
+                anomaly_targets = [
+                    0 if i in anomaly_classes else 1 for i in testset.targets
+                ]
 
                 model = model.eval()
-                outputs_recon_scores = get_finetuned_features(model,
-                                                              eval_test_loader)
+                outputs_recon_scores = get_finetuned_features(model, eval_test_loader)
                 outputs_recon_scores = outputs_recon_scores[0]
 
                 print("========================================================")
-                for j in range(len(args['use_layer_outputs'])):
-                    layer_ind = args['use_layer_outputs'][j]
+                for j in range(len(args["use_layer_outputs"])):
+                    layer_ind = args["use_layer_outputs"][j]
                     print(f"Layer number: {layer_ind}")
                     print(
-                        f"Test Max layer outputs score: {np.max(np.abs(outputs_recon_scores[:, layer_ind]))}")
-                    rot_auc = roc_auc_score(anomaly_targets,
-                                            outputs_recon_scores[:, layer_ind])
-                    print(f'layer AUROC score: {rot_auc}')
+                        f"Test Max layer outputs score: {np.max(np.abs(outputs_recon_scores[:, layer_ind]))}"
+                    )
+                    rot_auc = roc_auc_score(
+                        anomaly_targets, outputs_recon_scores[:, layer_ind]
+                    )
+                    print(f"layer AUROC score: {rot_auc}")
                     print("--------------------------------------------------------")
             model = model.train()
 
-    progress_bar_str = 'Test: repeat %d -- Mean Loss: %.3f | Last Loss: %.3f'
+    progress_bar_str = "Test: repeat %d -- Mean Loss: %.3f | Last Loss: %.3f"
 
     model = model.eval()
-    test_losses = forward_one_epoch(loader=test_loader,
-                                    optimizer=None,
-                                    criterion=criterion,
-                                    net=model,
-                                    mode=Mode.test,
-                                    progress_bar_str=progress_bar_str,
-                                    num_of_epochs=0)
+    test_losses = forward_one_epoch(
+        loader=test_loader,
+        optimizer=None,
+        criterion=criterion,
+        net=model,
+        mode=Mode.test,
+        progress_bar_str=progress_bar_str,
+        num_of_epochs=0,
+    )
 
-    best_model = best_model.to('cpu')
-    model = model.to('cpu')
+    best_model = best_model.to("cpu")
+    model = model.to("cpu")
     test_epoch_loss = np.mean(test_losses)
     print("===================== OOD val Results =====================")
-    print(f'OOD val Loss : {test_epoch_loss}')
+    print(f"OOD val Loss : {test_epoch_loss}")
     return model, best_model, cur_acc_loss
 
 
-def get_finetuned_features(model,
-                           loader,
-                           seed = 42
-                           ):
+def get_finetuned_features(model, loader, seed=42):
     torch.manual_seed(seed)
     if torch.cuda.is_available():
         torch.cuda.manual_seed_all(seed)
 
-    model = model.to('cuda')
+    model = model.to("cuda")
     criterion = nn.MSELoss(reduce=False)
 
     # start eval
     model = model.eval()
-    progress_bar_str = 'Test: repeat %d -- Mean Loss: %.3f'
+    progress_bar_str = "Test: repeat %d -- Mean Loss: %.3f"
 
     all_outputs_recon_scores = []
 
     with torch.no_grad():
         outputs_recon_scores = []
         for batch_idx, (inputs, targets) in enumerate(tqdm(loader)):
-
-            inputs = inputs.to('cuda')
+            inputs = inputs.to("cuda")
 
             origin_block_outputs, cloned_block_outputs = model(inputs)
             loss = criterion(cloned_block_outputs, origin_block_outputs)
@@ -522,8 +743,11 @@ def get_finetuned_features(model,
             outputs_recon_scores.extend(-1 * loss.detach().cpu().data.numpy())
 
             if batch_idx % 20 == 0:
-                progress_bar(batch_idx, len(loader), progress_bar_str
-                             % (1, np.mean(outputs_recon_scores)))
+                progress_bar(
+                    batch_idx,
+                    len(loader),
+                    progress_bar_str % (1, np.mean(outputs_recon_scores)),
+                )
 
             del inputs, origin_block_outputs, cloned_block_outputs, loss
             torch.cuda.empty_cache()
@@ -532,20 +756,62 @@ def get_finetuned_features(model,
     return np.array(all_outputs_recon_scores)
 
 
+def get_finetuned_features_adversarial(model, loader, attack, seed=42):
+    torch.manual_seed(seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(seed)
+
+    model = model.to("cuda")
+    criterion = nn.MSELoss(reduce=False)
+
+    # start eval
+    model = model.eval()
+    progress_bar_str = "Test: repeat %d -- Mean Loss: %.3f"
+
+    all_outputs_recon_scores = []
+
+    with torch.no_grad():
+        outputs_recon_scores = []
+        for batch_idx, (inputs, targets) in enumerate(tqdm(loader)):
+            inputs = inputs.to("cuda")
+            adv_inputs = attack(inputs)
+            origin_block_outputs, cloned_block_outputs = model(adv_inputs)
+            loss = criterion(cloned_block_outputs, origin_block_outputs)
+            loss = torch.mean(loss, [2, 3])
+            loss = loss.permute(1, 0)
+            outputs_recon_scores.extend(-1 * loss.detach().cpu().data.numpy())
+
+            if batch_idx % 20 == 0:
+                progress_bar(
+                    batch_idx,
+                    len(loader),
+                    progress_bar_str % (1, np.mean(outputs_recon_scores)),
+                )
+
+            del inputs, adv_inputs, origin_block_outputs, cloned_block_outputs, loss
+            torch.cuda.empty_cache()
+        all_outputs_recon_scores.append(outputs_recon_scores)
+
+    return np.array(all_outputs_recon_scores)
+
+
 def get_transforms(dataset, use_imagenet):
     # 0.5 normalization
-    if dataset == 'fmnist':
+    if dataset in ["fmnist", "mnist"]:
         val_transforms_list = [
-            transforms.Resize((384, 384)) if use_imagenet else transforms.Resize((224, 224)),
+            transforms.Resize((384, 384))
+            if use_imagenet
+            else transforms.Resize((224, 224)),
             transforms.Grayscale(num_output_channels=3),
-            transforms.ToTensor()
+            transforms.ToTensor(),
         ]
-
 
     else:
         val_transforms_list = [
-            transforms.Resize((384, 384)) if use_imagenet else transforms.Resize((224, 224)),
-            transforms.ToTensor()
+            transforms.Resize((384, 384))
+            if use_imagenet
+            else transforms.Resize((224, 224)),
+            transforms.ToTensor(),
         ]
 
     val_transforms = Compose(val_transforms_list)
@@ -553,58 +819,63 @@ def get_transforms(dataset, use_imagenet):
 
 
 def get_number_of_classes(dataset):
-    if dataset == 'cifar10':
+    if dataset == "cifar10":
         number_of_classes = 10
 
-    elif dataset == 'cifar100':
+    elif dataset == "cifar100":
         number_of_classes = 20
 
-    elif dataset == 'fmnist':
-        number_of_classes = 10
-    
-    elif dataset == 'mnist':
+    elif dataset == "fmnist":
         number_of_classes = 10
 
-    elif dataset == 'svhn':
+    elif dataset == "mnist":
         number_of_classes = 10
 
-    elif dataset == 'mvtec':
+    elif dataset == "svhn":
+        number_of_classes = 10
+
+    elif dataset == "mvtec":
         number_of_classes = 15
 
-    elif dataset == 'cats_vs_dogs':
+    elif dataset == "cats_vs_dogs":
         number_of_classes = 2
 
-    elif dataset == 'dior':
-        number_of_classes = 19
-
+    elif dataset == "mri":
+        number_of_classes = 2
     else:
         raise ValueError(f"{dataset} not supported yet!")
     return number_of_classes
 
 
-def get_datasets_for_ViT(dataset, data_path, one_vs_rest, _class,
-                         normal_test_sample_only=True,
-                         use_imagenet=False):
+def get_datasets_for_ViT(
+    dataset,
+    data_path,
+    one_vs_rest,
+    _class,
+    normal_test_sample_only=True,
+    use_imagenet=False,
+):
     number_of_classes = get_number_of_classes(dataset)
     if one_vs_rest:
         anomaly_classes = [i for i in range(number_of_classes) if i != _class]
     else:
         anomaly_classes = [_class]
 
-    val_transforms = get_transforms(dataset=dataset,
-                                    use_imagenet=use_imagenet)
+    val_transforms = get_transforms(dataset=dataset, use_imagenet=use_imagenet)
 
     # get dataset
     trainset_origin, testset = get_datasets(dataset, data_path, val_transforms)
 
-    train_indices = [i for i, val in enumerate(trainset_origin.targets)
-                     if val not in anomaly_classes]
+    train_indices = [
+        i for i, val in enumerate(trainset_origin.targets) if val not in anomaly_classes
+    ]
     logging.info(f"len of train dataset {len(train_indices)}")
     trainset = torch.utils.data.Subset(trainset_origin, train_indices)
 
     if normal_test_sample_only:
-        test_indices = [i for i, val in enumerate(testset.targets)
-                        if val not in anomaly_classes]
+        test_indices = [
+            i for i, val in enumerate(testset.targets) if val not in anomaly_classes
+        ]
         testset = torch.utils.data.Subset(testset, test_indices)
 
     logging.info(f"len of test dataset {len(testset)}")
@@ -617,47 +888,161 @@ def print_and_add_to_log(msg, logging):
 
 
 def get_datasets(dataset, data_path, val_transforms):
-    if dataset == 'cifar100':
-        testset = CIFAR100(root=data_path,
-                           train=False, download=True,
-                           transform=val_transforms)
+    if dataset == "cifar100":
+        testset = CIFAR100(
+            root=data_path, train=False, download=True, transform=val_transforms
+        )
 
-        trainset = CIFAR100(root=data_path,
-                            train=True, download=True,
-                            transform=val_transforms)
+        trainset = CIFAR100(
+            root=data_path, train=True, download=True, transform=val_transforms
+        )
 
         trainset.targets = sparse2coarse(trainset.targets)
         testset.targets = sparse2coarse(testset.targets)
 
-    elif dataset == 'cifar10':
-        testset = CIFAR10(root=data_path,
-                          train=False, download=True,
-                          transform=val_transforms)
+    elif dataset == "cifar10":
+        testset = CIFAR10(
+            root=data_path, train=False, download=True, transform=val_transforms
+        )
 
-        trainset = CIFAR10(root=data_path,
-                           train=True, download=True,
-                           transform=val_transforms)
+        trainset = CIFAR10(
+            root=data_path, train=True, download=True, transform=val_transforms
+        )
 
+    elif dataset == "mri":
+        testset = MRI(transform=val_transforms, train=False)
+        trainset = MRI(transform=val_transforms, train=True)
 
-    elif dataset == 'fmnist':
-        trainset = FashionMNIST(root=data_path,
-                                train=True, download=True,
-                                transform=val_transforms)
+    elif dataset == "fmnist":
+        trainset = FashionMNIST(
+            root=data_path, train=True, download=True, transform=val_transforms
+        )
 
-        testset = FashionMNIST(root=data_path,
-                               train=False, download=True,
-                               transform=val_transforms)
+        testset = FashionMNIST(
+            root=data_path, train=False, download=True, transform=val_transforms
+        )
 
-    elif dataset == 'cats_vs_dogs':
-        trainset = ImageFolder(root=data_path,
-                               transform=val_transforms)
-        testset = ImageFolder(root=data_path,
-                              transform=val_transforms)
+    elif dataset == "cats_vs_dogs":
+        trainset = ImageFolder(root=data_path, transform=val_transforms)
+        testset = ImageFolder(root=data_path, transform=val_transforms)
 
     else:
         raise ValueError(f"{dataset} not supported yet!")
 
     return trainset, testset
+
+
+import shutil
+from glob import glob
+import random
+import subprocess
+import zipfile
+import albuminations as A
+
+
+import os
+import random
+import zipfile
+import subprocess
+import shutil
+from glob import glob
+
+import torch
+import albumentations as A
+from PIL import Image
+
+
+class MRI(torch.utils.data.Dataset):
+    def __init__(self, transform=None, train=True, count=None):
+        self._download_and_extract()
+        self.transform = transform
+
+        self.targets = []
+
+        if train:
+            self.image_files = glob(
+                os.path.join("./MRI", "./Training", "notumor", "*.jpg")
+            )
+        else:
+            image_files = glob(os.path.join("./MRI", "./Testing", "*", "*.jpg"))
+            normal_image_files = glob(
+                os.path.join("./MRI", "./Testing", "notumor", "*.jpg")
+            )
+            anomaly_image_files = list(set(image_files) - set(normal_image_files))
+            self.image_files = image_files
+
+        self.image_files.sort(key=lambda y: y.lower())
+        self.train = train
+
+        if count is not None:
+            if count > len(self.image_files):
+                self.image_files = self._oversample(count)
+            else:
+                self.image_files = self._undersample(count)
+
+        # Add targets to the self.targets list
+        for image_file in self.image_files:
+            if os.path.dirname(image_file).endswith("notumor"):
+                self.targets.append(0)
+            else:
+                self.targets.append(1)
+
+    def _oversample(self, count):
+        num_extra_samples = count - len(self.image_files)
+        extra_image_files = [
+            random.choice(self.image_files) for _ in range(num_extra_samples)
+        ]
+
+        return self.image_files + extra_image_files
+
+    def _undersample(self, count):
+        indices = random.sample(range(len(self.image_files)), count)
+        new_image_files = [self.image_files[idx] for idx in indices]
+
+        return new_image_files
+
+    def _download_and_extract(self):
+        google_id = "1AOPOfQ05aSrr2RkILipGmEkgLDrZCKz_"
+        file_path = os.path.join("./MRI", "Training")
+
+        if os.path.exists(file_path):
+            return
+
+        if not os.path.exists("./MRI"):
+            os.makedirs("./MRI")
+
+        if not os.path.exists(file_path):
+            subprocess.run(["gdown", google_id, "-O", "./MRI/archive(3).zip"])
+
+        with zipfile.ZipFile("./MRI/archive(3).zip", "r") as zip_ref:
+            zip_ref.extractall("./MRI/")
+
+        os.rename("./MRI/Training/glioma", "./MRI/Training/glioma_tr")
+        os.rename("./MRI/Training/meningioma", "./MRI/Training/meningioma_tr")
+        os.rename("./MRI/Training/pituitary", "./MRI/Training/pituitary_tr")
+
+        shutil.move("./MRI/Training/glioma_tr", "./MRI/Testing")
+        shutil.move("./MRI/Training/meningioma_tr", "./MRI/Testing")
+        shutil.move("./MRI/Training/pituitary_tr", "./MRI/Testing")
+
+    def __getitem__(self, index):
+        image_file = self.image_files[index]
+        image = Image.open(image_file)
+        image = image.convert("RGB")
+        image = image.resize((224, 224))
+
+        if self.transform:
+            if isinstance(self.transform, A.core.composition.Compose):
+                image = self.transform(image=np.array(image))["image"] / 255
+            else:
+                image = self.transform(image)
+
+        target = self.targets[index]
+
+        return image, target
+
+    def __len__(self):
+        return len(self.image_files)
 
 
 class Mode(Enum):
@@ -667,13 +1052,13 @@ class Mode(Enum):
 
 
 try:
-    _, term_width = os.popen('stty size', 'r').read().split()
+    _, term_width = os.popen("stty size", "r").read().split()
 except ValueError:
     term_width = 0
 
 term_width = int(term_width)
 
-TOTAL_BAR_LENGTH = 65.
+TOTAL_BAR_LENGTH = 65.0
 last_time = time.time()
 begin_time = last_time
 
@@ -686,13 +1071,13 @@ def progress_bar(current, total, msg=None):
     cur_len = int(TOTAL_BAR_LENGTH * current / total)
     rest_len = int(TOTAL_BAR_LENGTH - cur_len) - 1
 
-    sys.stdout.write(' [')
+    sys.stdout.write(" [")
     for i in range(cur_len):
-        sys.stdout.write('=')
-    sys.stdout.write('>')
+        sys.stdout.write("=")
+    sys.stdout.write(">")
     for i in range(rest_len):
-        sys.stdout.write('.')
-    sys.stdout.write(']')
+        sys.stdout.write(".")
+    sys.stdout.write("]")
 
     cur_time = time.time()
     step_time = cur_time - last_time
@@ -700,38 +1085,42 @@ def progress_bar(current, total, msg=None):
     tot_time = cur_time - begin_time
 
     L = []
-    L.append('  Step: %s' % format_time(step_time))
-    L.append(' | Tot: %s' % format_time(tot_time))
+    L.append("  Step: %s" % format_time(step_time))
+    L.append(" | Tot: %s" % format_time(tot_time))
     if msg:
-        L.append(' | ' + msg)
+        L.append(" | " + msg)
 
-    msg = ''.join(L)
+    msg = "".join(L)
     sys.stdout.write(msg)
     for i in range(term_width - int(TOTAL_BAR_LENGTH) - len(msg) - 3):
-        sys.stdout.write(' ')
+        sys.stdout.write(" ")
 
     # Go back to the center of the bar.
     for i in range(term_width - int(TOTAL_BAR_LENGTH / 2) + 2):
-        sys.stdout.write('\b')
-    sys.stdout.write(' %d/%d ' % (current + 1, total))
+        sys.stdout.write("\b")
+    sys.stdout.write(" %d/%d " % (current + 1, total))
 
     if current < total - 1:
-        sys.stdout.write('\r')
+        sys.stdout.write("\r")
     else:
-        sys.stdout.write('\n')
+        sys.stdout.write("\n")
     sys.stdout.flush()
 
 
-def plot_graphs(train_accuracies, val_accuracies, train_losses,
-                val_losses, path_to_save=''):
+def plot_graphs(
+    train_accuracies, val_accuracies, train_losses, val_losses, path_to_save=""
+):
     plot_accuracy(train_accuracies, val_accuracies, path_to_save=path_to_save)
     plot_loss(train_losses, val_losses, path_to_save=path_to_save)
     return max(val_accuracies)
 
 
-def plot_accuracy(train_accuracies, val_accuracies, to_show=True,
-                  label='accuracy', path_to_save=''):
-    print(f'Best val accuracy was {max(val_accuracies)}, at epoch {np.argmax(val_accuracies)}')
+def plot_accuracy(
+    train_accuracies, val_accuracies, to_show=True, label="accuracy", path_to_save=""
+):
+    print(
+        f"Best val accuracy was {max(val_accuracies)}, at epoch {np.argmax(val_accuracies)}"
+    )
     train_len = len(np.array(train_accuracies))
     val_len = len(np.array(val_accuracies))
 
@@ -742,13 +1131,13 @@ def plot_accuracy(train_accuracies, val_accuracies, to_show=True,
     else:
         xs_val = list(range(0, train_len))
 
-    plt.plot(xs_val, np.array(val_accuracies), label='val ' + label)
-    plt.plot(xs_train, np.array(train_accuracies), label='train ' + label)
+    plt.plot(xs_val, np.array(val_accuracies), label="val " + label)
+    plt.plot(xs_train, np.array(train_accuracies), label="train " + label)
     plt.legend()
     plt.xlabel("epochs")
     plt.ylabel("accuracy")
     if len(path_to_save) > 0:
-        plt.savefig(f'{path_to_save}/accuracy_graph.png')
+        plt.savefig(f"{path_to_save}/accuracy_graph.png")
 
     if to_show:
         plt.show()
@@ -765,31 +1154,36 @@ def format_time(seconds):
     seconds = seconds - secondsf
     millis = int(seconds * 1000)
 
-    f = ''
+    f = ""
     i = 1
     if days > 0:
-        f += str(days) + 'D'
+        f += str(days) + "D"
         i += 1
     if hours > 0 and i <= 2:
-        f += str(hours) + 'h'
+        f += str(hours) + "h"
         i += 1
     if minutes > 0 and i <= 2:
-        f += str(minutes) + 'm'
+        f += str(minutes) + "m"
         i += 1
     if secondsf > 0 and i <= 2:
-        f += str(secondsf) + 's'
+        f += str(secondsf) + "s"
         i += 1
     if millis > 0 and i <= 2:
-        f += str(millis) + 'ms'
+        f += str(millis) + "ms"
         i += 1
-    if f == '':
-        f = '0ms'
+    if f == "":
+        f = "0ms"
     return f
 
 
-def plot_loss(train_losses, val_losses, to_show=True,
-              val_label='val loss', train_label='train loss',
-              path_to_save=''):
+def plot_loss(
+    train_losses,
+    val_losses,
+    to_show=True,
+    val_label="val loss",
+    train_label="train loss",
+    path_to_save="",
+):
     train_len = len(np.array(train_losses))
     val_len = len(np.array(val_losses))
 
@@ -806,6 +1200,6 @@ def plot_loss(train_losses, val_losses, to_show=True,
     plt.xlabel("epochs")
     plt.ylabel("loss")
     if len(path_to_save) > 0:
-        plt.savefig(f'{path_to_save}/loss_graph.png')
+        plt.savefig(f"{path_to_save}/loss_graph.png")
     if to_show:
         plt.show()
