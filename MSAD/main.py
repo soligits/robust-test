@@ -258,7 +258,7 @@ def main(args):
     model = model.to(device)
 
     if args.randomized_smoothing:
-        model = utils.randomized_smoothing(model, args.randomized_smoothing_sigma, args.randomized_smoothing_n, device)
+        model = utils.RandomizedSmoothing(model, args.randomized_smoothing_sigma, args.randomized_smoothing_n, device)
 
     train_loader, test_loader, train_loader_1 = utils.get_loaders(
         source_dataset=args.source_dataset,
