@@ -257,6 +257,9 @@ def main(args):
     model = utils.Model(str(args.backbone), args.model_path)
     model = model.to(device)
 
+    if args.randomized_smoothing:
+        model = utils.randomized_smoothing(model, args.randomized_smoothing_sigma, args.randomized_smoothing_n, device)
+
     train_loader, test_loader, train_loader_1 = utils.get_loaders(
         source_dataset=args.source_dataset,
         target_datset=args.target_dataset,
@@ -325,6 +328,15 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--angular", action="store_true", help="Train with angular center loss"
+    )
+    parser.add_argument(
+        "--randomized_smoothing", action="store_true", help="Train with randomized smoothing"
+    )
+    parser.add_argument(
+        "--randomized_smoothing_sigma", type=float, default=0.25, help="Sigma for randomized smoothing"
+    )
+    parser.add_argument(
+        "--randomized_smoothing_n", type=int, default=100, help="Number of samples for randomized smoothing"
     )
     args = parser.parse_args()
 

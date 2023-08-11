@@ -22,6 +22,32 @@ import requests
 import subprocess
 
 
+
+class RandomizedSmoothing(torch.nn.Module):
+
+    def __init__(self, model, sigma=0.25, n=10, device='cuda'):
+        super(RandomizedSmoothing, self).__init__()
+        self.model = model
+        self.sigma = sigma
+        self.n = n
+        self.device = device
+
+    def forward(self, x):
+        x = x.to(self.device)
+        x = x.repeat(self.n, 1, 1, 1)
+        noise = torch.randn_like(x) * self.sigma
+        x = x + noise
+        x = x.clamp(0, 1)
+        x = self.model(x)
+        x = x.view(self.n, -1, x.size(1))
+        x = x.mean(0)
+        return x
+
+    def __repr__(self):
+        return self.__class__.__name__ + '(model={})'.format(self.model.__class__.__name__)
+
+
+
 class GaussianBlur(object):
     """Gaussian blur augmentation in SimCLR https://arxiv.org/abs/2002.05709"""
 
