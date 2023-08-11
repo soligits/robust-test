@@ -121,7 +121,7 @@ class Model(torch.nn.Module):
             self.backbone = models.resnet50(pretrained=True)
         elif backbone == "18":
             self.backbone = models.resnet18(pretrained=True)
-        elif backbone == '18-robust':
+        elif backbone == 'resnet18_linf_eps8.0':
             self.backbone = models.resnet18(pretrained=False)
             checkpoint = torch.load(os.path.join(path, 'resnet18_linf_eps8.0.ckpt'))
             state_dict_path = 'model'
@@ -129,7 +129,14 @@ class Model(torch.nn.Module):
             sd = {k[len('module.'):]:v for k,v in sd.items()}
             sd_t = {k[len('attacker.model.'):]:v for k,v in sd.items() if k.split('.')[0]=='attacker' and k.split('.')[1]!='normalize'}
             self.backbone.load_state_dict(sd_t)
-
+        elif backbone == 'resnet18_linf_eps2.0':
+            self.backbone = models.resnet18(pretrained=False)
+            checkpoint = torch.load(os.path.join(path, 'resnet18_linf_eps2.0.ckpt'))
+            state_dict_path = 'model'
+            sd = checkpoint[state_dict_path]
+            sd = {k[len('module.'):]:v for k,v in sd.items()}
+            sd_t = {k[len('attacker.model.'):]:v for k,v in sd.items() if k.split('.')[0]=='attacker' and k.split('.')[1]!='normalize'}
+            self.backbone.load_state_dict(sd_t)
         else:
             self.backbone = RobustModel(path=path, arch=backbone)
 
