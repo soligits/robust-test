@@ -46,7 +46,10 @@ def contrastive_loss(out_1, out_2):
 
 def train_model(model, train_loader, test_loader, train_loader_1, device, args):
     model.eval()
-    auc, feature_space = get_score(model, device, train_loader, test_loader)
+    auc, feature_space = get_score(model, device, train_loader, test_loader, 
+            randomized_smoothing=args.randomized_smoothing, 
+            sigma=args.randomized_smoothing_sigma, 
+            n=args.randomized_smoothing_n)
     log("Epoch: {}, AUROC is: {}".format(0, auc))
     optimizer = optim.SGD(model.parameters(), lr=args.lr, weight_decay=0.00005)
     center = torch.FloatTensor(feature_space).mean(dim=0)
@@ -134,7 +137,6 @@ def get_score(model, device, train_loader, test_loader, randomized_smoothing=Fal
         test_labels = torch.cat(test_labels, dim=0).cpu().numpy()
 
     distances = utils.knn_score(train_feature_space, test_feature_space)
-    print(f'randomized_smoothing: {randomized_smoothing}')
     print(distances.shape)
     print(test_feature_space.shape)
     print(test_labels.shape)
@@ -149,7 +151,6 @@ def get_score(model, device, train_loader, test_loader, randomized_smoothing=Fal
 
 def get_adv_score(model, device, train_loader, test_loader, attack_type, eps, randomized_smoothing=False, sigma=0.1, n=5):
     train_feature_space = []
-    print(f'randomized_smoothing: {randomized_smoothing}')
     with torch.no_grad():
         for imgs, _ in tqdm(train_loader, desc="Train set feature extracting"):
             imgs = imgs.to(device)
