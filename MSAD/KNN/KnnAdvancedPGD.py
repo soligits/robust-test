@@ -90,7 +90,7 @@ class PGD_KNN_ADVANCED(Attack):
               knn_distances_list = [torch.norm(outputs[i] - torch.tensor(self.train_embeddings[indices[i]], device=self.device), dim=1, keepdim=True) for i in range(outputs.shape[0])]
               knn_distances = torch.cat(knn_distances_list, dim=1).to(self.device)
               if self.randomized_smoothing:
-                  knn_distances = knn_distances.view(self.n, -1, knn_distances.size(1))
+                  knn_distances = knn_distances.view(self.n, -1)
                   knn_distances = knn_distances.mean(0)
 
               # Compute the cost function as the mean of the distances to the K-nearest neighbors
