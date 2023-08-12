@@ -137,11 +137,8 @@ def get_score(model, device, train_loader, test_loader, randomized_smoothing=Fal
         test_labels = torch.cat(test_labels, dim=0).cpu().numpy()
 
     distances = utils.knn_score(train_feature_space, test_feature_space)
-    print(distances.shape)
-    print(test_feature_space.shape)
-    print(test_labels.shape)
     if randomized_smoothing:
-        distances = distances.view(n, -1)
+        distances = distances.reshape(n, -1)
         distances = distances.mean(0)
 
     auc = roc_auc_score(test_labels, distances)
