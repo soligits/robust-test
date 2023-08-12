@@ -25,7 +25,8 @@ class PGD_KNN_ADVANCED(Attack):
         >>> adv_images = attack(images, labels)
     """
     def __init__(self, model, train_embeddings, k = 2, eps=0.3,
-                 alpha=2/255, steps=40, random_start=True):
+                 alpha=2/255, steps=40, random_start=True, 
+                 randomized_smoothing=False, sigma=0.1, n=5):
         super().__init__("PGD", model)
         self.eps = eps
         self.steps = steps
@@ -34,6 +35,9 @@ class PGD_KNN_ADVANCED(Attack):
         self._supported_mode = ['default', 'targeted']
         self.train_embeddings = train_embeddings
         self.k = k
+        self.randomized_smoothing = randomized_smoothing
+        self.sigma = sigma
+        self.n = n
 
     def forward(self, images, labels):
         r"""
@@ -71,7 +75,13 @@ class PGD_KNN_ADVANCED(Attack):
           for _ in range(self.steps):
               adv_images.requires_grad = True
 
+              if self.randomized_smoothing:
+                  adv_images = adv_images.repeat(self.n, 1, 1, 1)
+                  noise = torch.randn_like(adv_images) * self.sigma
+                  adv_images = adv_images + noise
+                  adv_images = adv_images.clamp(0, 1)
               outputs = self.model(adv_images)
+
           
               adv_images_np = outputs.cpu().detach().numpy().reshape(outputs.shape[0], -1)
               _, indices = index.search(adv_images_np.astype(np.float32), self.k)
@@ -79,6 +89,9 @@ class PGD_KNN_ADVANCED(Attack):
               # Compute the distance to the K-nearest neighbors
               knn_distances_list = [torch.norm(outputs[i] - torch.tensor(self.train_embeddings[indices[i]], device=self.device), dim=1, keepdim=True) for i in range(outputs.shape[0])]
               knn_distances = torch.cat(knn_distances_list, dim=1).to(self.device)
+              if self.randomized_smoothing:
+                  knn_distances = knn_distances.view(self.n, -1, knn_distances.size(1))
+                  knn_distances = knn_distances.mean(0)
 
               # Compute the cost function as the mean of the distances to the K-nearest neighbors
               cost = knn_distances.mean()

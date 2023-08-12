@@ -33,7 +33,6 @@ class RandomizedSmoothing(torch.nn.Module):
         self.device = device
 
     def forward(self, x):
-        x = x.to(self.device)
         x = x.repeat(self.n, 1, 1, 1)
         noise = torch.randn_like(x) * self.sigma
         x = x + noise

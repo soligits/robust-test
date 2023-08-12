@@ -58,13 +58,19 @@ def train_model(model, train_loader, test_loader, train_loader_1, device, args):
             model, train_loader_1, optimizer, center, device, args.angular
         )
         log("Epoch: {}, Loss: {}".format(epoch + 1, running_loss))
-        auc, _ = get_score(model, device, train_loader, test_loader)
+        auc, _ = get_score(model, device, train_loader, test_loader, 
+            randomized_smoothing=args.randomized_smoothing, 
+            sigma=args.randomized_smoothing_sigma, 
+            n=args.randomized_smoothing_n)
         log("Epoch: {}, AUROC is: {}".format(epoch + 1, auc))
 
     for test_attack in args.test_attacks:
         log(f"\nStarting the test for {test_attack} ...\n")
         adv_auc, adv_auc_in, adv_auc_out, feature_space = get_adv_score(
-            model, device, train_loader, test_loader, test_attack, eval(args.eps)
+            model, device, train_loader, test_loader, test_attack, eval(args.eps), 
+            randomized_smoothing=args.randomized_smoothing, 
+            sigma=args.randomized_smoothing_sigma, 
+            n=args.randomized_smoothing_n
         )
         log(f"{test_attack} ADV AUROC is: {adv_auc}")
         log(f"IN: {test_attack} ADV AUROC is: {adv_auc_in}")
@@ -98,7 +104,7 @@ def run_epoch(model, train_loader, optimizer, center, device, is_angular):
     return total_loss / (total_num)
 
 
-def get_score(model, device, train_loader, test_loader):
+def get_score(model, device, train_loader, test_loader, randomized_smoothing=False, sigma=0.1, n=5):
     train_feature_space = []
     with torch.no_grad():
         for imgs, _ in tqdm(train_loader, desc="Train set feature extracting"):
@@ -113,6 +119,12 @@ def get_score(model, device, train_loader, test_loader):
     with torch.no_grad():
         for imgs, labels in tqdm(test_loader, desc="Test set feature extracting"):
             imgs = imgs.to(device)
+            if randomized_smoothing:
+                imgs = imgs.repeat(n, 1, 1, 1)
+                noise = torch.randn_like(imgs) * sigma
+                imgs = imgs + noise
+                imgs = imgs.clamp(0, 1)
+            
             features = model(imgs)
             test_feature_space.append(features)
             test_labels.append(labels)
@@ -122,13 +134,16 @@ def get_score(model, device, train_loader, test_loader):
         test_labels = torch.cat(test_labels, dim=0).cpu().numpy()
 
     distances = utils.knn_score(train_feature_space, test_feature_space)
+    if randomized_smoothing:
+        distances = distances.view(n, -1, distances.size(1))
+        distances = distances.mean(0)
 
     auc = roc_auc_score(test_labels, distances)
 
     return auc, train_feature_space
 
 
-def get_adv_score(model, device, train_loader, test_loader, attack_type, eps):
+def get_adv_score(model, device, train_loader, test_loader, attack_type, eps, randomized_smoothing=False, sigma=0.1, n=5):
     train_feature_space = []
     with torch.no_grad():
         for imgs, _ in tqdm(train_loader, desc="Train set feature extracting"):
@@ -155,6 +170,9 @@ def get_adv_score(model, device, train_loader, test_loader, attack_type, eps):
             steps=steps,
             alpha=(2.5 * eps) / steps,
             k=2,
+            randomized_smoothing=randomized_smoothing,
+            sigma=sigma, 
+            n=n
         )
     elif attack_type.startswith("PGD"):
         steps = int(attack_type.split("-")[1])
@@ -257,8 +275,8 @@ def main(args):
     model = utils.Model(str(args.backbone), args.model_path)
     model = model.to(device)
 
-    if args.randomized_smoothing:
-        model = utils.RandomizedSmoothing(model, args.randomized_smoothing_sigma, args.randomized_smoothing_n, device)
+    # if args.randomized_smoothing:
+    #     model = utils.RandomizedSmoothing(model, args.randomized_smoothing_sigma, args.randomized_smoothing_n, device)
 
     train_loader, test_loader, train_loader_1 = utils.get_loaders(
         source_dataset=args.source_dataset,
