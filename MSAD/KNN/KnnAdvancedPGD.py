@@ -75,12 +75,15 @@ class PGD_KNN_ADVANCED(Attack):
           for _ in range(self.steps):
               adv_images.requires_grad = True
 
+              outputs = None
               if self.randomized_smoothing:
-                  adv_images = adv_images.repeat(self.n, 1, 1, 1)
-                  noise = torch.randn_like(adv_images) * self.sigma
-                  adv_images = adv_images + noise
-                  adv_images = adv_images.clamp(0, 1)
-              outputs = self.model(adv_images)
+                  augmented_images = adv_images.repeat(self.n, 1, 1, 1)
+                  noise = torch.randn_like(augmented_images) * self.sigma
+                  augmented_images = augmented_images + noise
+                  augmented_images = augmented_images.clamp(0, 1)
+                  outputs = self.model(augmented_images)
+              else:
+                  outputs = self.model(adv_images)
 
           
               adv_images_np = outputs.cpu().detach().numpy().reshape(outputs.shape[0], -1)
