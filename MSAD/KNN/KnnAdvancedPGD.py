@@ -71,7 +71,7 @@ class PGD_KNN_ADVANCED(Attack):
               adv_images = adv_images + torch.empty_like(adv_images).uniform_(-self.eps, self.eps)
               adv_images = torch.clamp(adv_images, min=0, max=1).detach()
 
-          # print(adv_images.shape)
+          print(adv_images.shape)
           for _ in range(self.steps):
               adv_images.requires_grad = True
 
@@ -92,7 +92,7 @@ class PGD_KNN_ADVANCED(Attack):
               # Compute the distance to the K-nearest neighbors
               knn_distances_list = [torch.norm(outputs[i] - torch.tensor(self.train_embeddings[indices[i]], device=self.device), dim=1, keepdim=True) for i in range(outputs.shape[0])]
               knn_distances = torch.cat(knn_distances_list, dim=1).to(self.device)
-              # print(knn_distances.shape)
+              print(knn_distances.shape)
               if self.randomized_smoothing:
                   knn_distances = knn_distances.view(self.k, self.n, -1)
                   knn_distances = knn_distances.mean(1)
