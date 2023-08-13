@@ -71,7 +71,7 @@ class PGD_KNN_ADVANCED(Attack):
               adv_images = adv_images + torch.empty_like(adv_images).uniform_(-self.eps, self.eps)
               adv_images = torch.clamp(adv_images, min=0, max=1).detach()
 
-
+          print(adv_images.shape)
           for _ in range(self.steps):
               adv_images.requires_grad = True
 
