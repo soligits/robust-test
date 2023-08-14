@@ -123,12 +123,8 @@ def get_score(model, device, train_loader, test_loader, randomized_smoothing=Fal
         for imgs, labels in tqdm(test_loader, desc="Test set feature extracting"):
             imgs = imgs.to(device)
             if randomized_smoothing:
-                # augmented_images = []
-                # for _ in range(n):
-                #     noise = torch.randn_like(imgs) * sigma
-                #     augmented_images.append((imgs + noise).clamp(0, 1))
-                # imgs = torch.cat(augmented_images, dim=0)
-                imgs = imgs.repeat(n, 1, 1, 1)
+                # imgs = imgs.repeat(n, 1, 1, 1)
+                imgs = imgs.repeat_interleave(n, dim=0)
                 noise = torch.randn_like(imgs) * sigma
                 imgs = imgs + noise
                 imgs = imgs.clamp(0, 1)
@@ -143,22 +139,19 @@ def get_score(model, device, train_loader, test_loader, randomized_smoothing=Fal
         test_labels = torch.cat(test_labels, dim=0).cpu().numpy()
 
     distances = utils.knn_score(train_feature_space, test_feature_space)
-    new_distances = []
+    # if randomized_smoothing:
+        # new_distances = []
+    #     for i, (imgs, labels) in enumerate(test_loader):
+    #         imgs_distances = distances[i*len(labels)*n: (i+1)*len(labels)*n]
+    #         imgs_distances = torch.tensor(imgs_distances).view(n, -1)
+    #         imgs_distances = imgs_distances.mean(0)
+    #         new_distances.append(imgs_distances)
+    #     new_distances = torch.cat(new_distances, dim=0).cpu().numpy()
+        # distances = new_distances
     if randomized_smoothing:
-        for i, (imgs, labels) in enumerate(test_loader):
-            imgs_distances = distances[i*len(labels)*n: (i+1)*len(labels)*n]
-            imgs_distances = torch.tensor(imgs_distances).view(n, -1)
-            imgs_distances = imgs_distances.mean(0)
-            new_distances.append(imgs_distances)
-        new_distances = torch.cat(new_distances, dim=0).cpu().numpy()
-        # distances = torch.tensor(distances).view(n, -1)
-        # print(distances[:, 0])
-        # distances = distances.mean(0)
-        # distances = distances.cpu().numpy()
-    else:
-        new_distances = distances
+        distances = distances.view(-1, n)
+        distances = distances.mean(1)
     
-    distances = new_distances
 
     auc = roc_auc_score(test_labels, distances)
 
