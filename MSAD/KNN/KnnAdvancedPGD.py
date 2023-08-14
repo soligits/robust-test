@@ -60,7 +60,6 @@ class PGD_KNN_ADVANCED(Attack):
         def adv_attack(target_images, attack_anomaly):
           target_images.requires_grad = True
           adv_images = target_images.clone().detach()
-          
 
           if adv_images.numel() == 0:
             return adv_images
@@ -71,19 +70,8 @@ class PGD_KNN_ADVANCED(Attack):
               adv_images = adv_images + torch.empty_like(adv_images).uniform_(-self.eps, self.eps)
               adv_images = torch.clamp(adv_images, min=0, max=1).detach()
 
-          # print(adv_images.shape)
           for _ in range(self.steps):
               adv_images.requires_grad = True
-
-              # outputs = None
-              # if self.randomized_smoothing:
-              #     augmented_images = adv_images.repeat(self.n, 1, 1, 1)
-              #     noise = torch.randn_like(augmented_images) * self.sigma
-              #     augmented_images = augmented_images + noise
-              #     augmented_images = augmented_images.clamp(0, 1)
-              #     outputs = self.model(augmented_images)
-              # else:
-              #     outputs = self.model(adv_images)
               outputs = self.model(adv_images)
 
           

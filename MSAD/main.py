@@ -123,7 +123,6 @@ def get_score(model, device, train_loader, test_loader, randomized_smoothing=Fal
         for imgs, labels in tqdm(test_loader, desc="Test set feature extracting"):
             imgs = imgs.to(device)
             if randomized_smoothing:
-                # imgs = imgs.repeat(n, 1, 1, 1)
                 imgs = imgs.repeat_interleave(n, dim=0)
                 noise = torch.randn_like(imgs) * sigma
                 imgs = imgs + noise
@@ -139,15 +138,6 @@ def get_score(model, device, train_loader, test_loader, randomized_smoothing=Fal
         test_labels = torch.cat(test_labels, dim=0).cpu().numpy()
 
     distances = utils.knn_score(train_feature_space, test_feature_space)
-    # if randomized_smoothing:
-        # new_distances = []
-    #     for i, (imgs, labels) in enumerate(test_loader):
-    #         imgs_distances = distances[i*len(labels)*n: (i+1)*len(labels)*n]
-    #         imgs_distances = torch.tensor(imgs_distances).view(n, -1)
-    #         imgs_distances = imgs_distances.mean(0)
-    #         new_distances.append(imgs_distances)
-    #     new_distances = torch.cat(new_distances, dim=0).cpu().numpy()
-        # distances = new_distances
     if randomized_smoothing:
         distances = torch.tensor(distances).view(-1, n).mean(1).cpu().numpy()
     
@@ -210,6 +200,13 @@ def get_adv_score(model, device, train_loader, test_loader, attack_type, eps, ra
     ):
         imgs = imgs.to(device)
         labels = labels.to(device)
+        if randomized_smoothing:
+            imgs = imgs.repeat_interleave(n, dim=0)
+            labels = labels.repeat_interleave(n, dim=0)
+            noise = torch.randn_like(imgs) * sigma
+            imgs = imgs + noise
+            imgs = imgs.clamp(0, 1)
+        
         adv_imgs, adv_imgs_in, adv_imgs_out, labels = test_attack(imgs, labels)
 
         adv_test_labels += labels.cpu().numpy().tolist()
@@ -259,35 +256,12 @@ def get_adv_score(model, device, train_loader, test_loader, attack_type, eps, ra
         train_feature_space, test_adversarial_feature_space_out
     )
     
-    # print(adv_distances.shape)
-    # if randomized_smoothing:
-    #     new_adv_distances = []
-    #     new_adv_distances_in = []
-    #     new_adv_distances_out = []
+    if randomized_smoothing:
+        adv_distances = torch.tensor(adv_distances).view(-1, n).mean(1).cpu().numpy()
+        adv_distances_in = torch.tensor(adv_distances_in).view(-1, n).mean(1).cpu().numpy()
+        adv_distances_out = torch.tensor(adv_distances_out).view(-1, n).mean(1).cpu().numpy()
+        adv_test_labels = torch.tensor(adv_test_labels).view(-1, n).mean(1).cpu().numpy()
 
-    #     for i, (imgs, labels) in enumerate(test_loader):
-    #         adv_distances_tmp = adv_distances[i*len(labels)*n: (i+1)*len(labels)*n]
-    #         adv_distances_in_tmp = adv_distances_in[i*len(labels)*n: (i+1)*len(labels)*n]
-    #         adv_distances_out_tmp = adv_distances_out[i*len(labels)*n: (i+1)*len(labels)*n]
-
-    #         adv_distances_tmp = torch.tensor(adv_distances_tmp).view(n, -1)
-    #         adv_distances_in_tmp = torch.tensor(adv_distances_in_tmp).view(n, -1)
-    #         adv_distances_out_tmp = torch.tensor(adv_distances_out_tmp).view(n, -1)
-
-    #         adv_distances_tmp = adv_distances_tmp.mean(0)
-    #         adv_distances_in_tmp = adv_distances_in_tmp.mean(0)
-    #         adv_distances_out_tmp = adv_distances_out_tmp.mean(0)
-
-    #         new_adv_distances.append(adv_distances_tmp)
-    #         new_adv_distances_in.append(adv_distances_in_tmp)
-    #         new_adv_distances_out.append(adv_distances_out_tmp)
-    #     new_adv_distances = torch.cat(new_adv_distances, dim=0).cpu().numpy()
-    #     new_adv_distances_in = torch.cat(new_adv_distances_in, dim=0).cpu().numpy()
-    #     new_adv_distances_out = torch.cat(new_adv_distances_out, dim=0).cpu().numpy()
-
-    #     adv_distances = new_adv_distances
-    #     adv_distances_in = new_adv_distances_in
-    #     adv_distances_out = new_adv_distances_out
 
     # print(adv_distances.shape)
     adv_auc = roc_auc_score(adv_test_labels, adv_distances)
