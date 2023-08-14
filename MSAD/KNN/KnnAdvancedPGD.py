@@ -60,12 +60,6 @@ class PGD_KNN_ADVANCED(Attack):
         def adv_attack(target_images, attack_anomaly):
           target_images.requires_grad = True
           
-          if self.randomized_smoothing:
-             augmented_images = target_images.repeat(self.n, 1, 1, 1)
-             noise = torch.randn_like(augmented_images) * self.sigma
-             augmented_images = augmented_images + noise
-             target_images = augmented_images.clamp(0, 1)
-            
           adv_images = target_images.clone().detach()
 
           if adv_images.numel() == 0:
@@ -81,15 +75,15 @@ class PGD_KNN_ADVANCED(Attack):
           for _ in range(self.steps):
               adv_images.requires_grad = True
 
-              outputs = outputs = self.model(adv_images)
-              # if self.randomized_smoothing:
-              #     augmented_images = adv_images.repeat(self.n, 1, 1, 1)
-              #     noise = torch.randn_like(augmented_images) * self.sigma
-              #     augmented_images = augmented_images + noise
-              #     augmented_images = augmented_images.clamp(0, 1)
-              #     outputs = self.model(augmented_images)
-              # else:
-              #     outputs = self.model(adv_images)
+              outputs = None
+              if self.randomized_smoothing:
+                  augmented_images = adv_images.repeat(self.n, 1, 1, 1)
+                  noise = torch.randn_like(augmented_images) * self.sigma
+                  augmented_images = augmented_images + noise
+                  # augmented_images = augmented_images.clamp(0, 1)
+                  outputs = self.model(augmented_images)
+              else:
+                  outputs = self.model(adv_images)
 
           
               adv_images_np = outputs.cpu().detach().numpy().reshape(outputs.shape[0], -1)

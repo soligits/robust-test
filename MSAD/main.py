@@ -267,37 +267,37 @@ def get_adv_score(model, device, train_loader, test_loader, attack_type, eps, ra
         train_feature_space, test_adversarial_feature_space_out
     )
     
-    print(adv_distances.shape)
-    if randomized_smoothing:
-        new_adv_distances = []
-        new_adv_distances_in = []
-        new_adv_distances_out = []
+    # print(adv_distances.shape)
+    # if randomized_smoothing:
+    #     new_adv_distances = []
+    #     new_adv_distances_in = []
+    #     new_adv_distances_out = []
 
-        for i, (imgs, labels) in enumerate(test_loader):
-            adv_distances_tmp = adv_distances[i*len(labels)*n: (i+1)*len(labels)*n]
-            adv_distances_in_tmp = adv_distances_in[i*len(labels)*n: (i+1)*len(labels)*n]
-            adv_distances_out_tmp = adv_distances_out[i*len(labels)*n: (i+1)*len(labels)*n]
+    #     for i, (imgs, labels) in enumerate(test_loader):
+    #         adv_distances_tmp = adv_distances[i*len(labels)*n: (i+1)*len(labels)*n]
+    #         adv_distances_in_tmp = adv_distances_in[i*len(labels)*n: (i+1)*len(labels)*n]
+    #         adv_distances_out_tmp = adv_distances_out[i*len(labels)*n: (i+1)*len(labels)*n]
 
-            adv_distances_tmp = torch.tensor(adv_distances_tmp).view(n, -1)
-            adv_distances_in_tmp = torch.tensor(adv_distances_in_tmp).view(n, -1)
-            adv_distances_out_tmp = torch.tensor(adv_distances_out_tmp).view(n, -1)
+    #         adv_distances_tmp = torch.tensor(adv_distances_tmp).view(n, -1)
+    #         adv_distances_in_tmp = torch.tensor(adv_distances_in_tmp).view(n, -1)
+    #         adv_distances_out_tmp = torch.tensor(adv_distances_out_tmp).view(n, -1)
 
-            adv_distances_tmp = adv_distances_tmp.mean(0)
-            adv_distances_in_tmp = adv_distances_in_tmp.mean(0)
-            adv_distances_out_tmp = adv_distances_out_tmp.mean(0)
+    #         adv_distances_tmp = adv_distances_tmp.mean(0)
+    #         adv_distances_in_tmp = adv_distances_in_tmp.mean(0)
+    #         adv_distances_out_tmp = adv_distances_out_tmp.mean(0)
 
-            new_adv_distances.append(adv_distances_tmp)
-            new_adv_distances_in.append(adv_distances_in_tmp)
-            new_adv_distances_out.append(adv_distances_out_tmp)
-        new_adv_distances = torch.cat(new_adv_distances, dim=0).cpu().numpy()
-        new_adv_distances_in = torch.cat(new_adv_distances_in, dim=0).cpu().numpy()
-        new_adv_distances_out = torch.cat(new_adv_distances_out, dim=0).cpu().numpy()
+    #         new_adv_distances.append(adv_distances_tmp)
+    #         new_adv_distances_in.append(adv_distances_in_tmp)
+    #         new_adv_distances_out.append(adv_distances_out_tmp)
+    #     new_adv_distances = torch.cat(new_adv_distances, dim=0).cpu().numpy()
+    #     new_adv_distances_in = torch.cat(new_adv_distances_in, dim=0).cpu().numpy()
+    #     new_adv_distances_out = torch.cat(new_adv_distances_out, dim=0).cpu().numpy()
 
-        adv_distances = new_adv_distances
-        adv_distances_in = new_adv_distances_in
-        adv_distances_out = new_adv_distances_out
+    #     adv_distances = new_adv_distances
+    #     adv_distances_in = new_adv_distances_in
+    #     adv_distances_out = new_adv_distances_out
 
-    print(adv_distances.shape)
+    # print(adv_distances.shape)
     adv_auc = roc_auc_score(adv_test_labels, adv_distances)
     adv_auc_in = roc_auc_score(adv_test_labels, adv_distances_in)
     adv_auc_out = roc_auc_score(adv_test_labels, adv_distances_out)
